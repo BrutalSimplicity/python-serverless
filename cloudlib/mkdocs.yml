@@ -1,0 +1,34 @@
+site_name: Python Cloud Application Library
+repo_name: python-serverless
+repo_url: https://bitbucket.org/corpinfo/python-serverless
+nav:
+  - Overview: index.md
+  - Logging:
+    # - Guide: logging/guide.md
+    - API: logging/api.md
+theme:
+  name: material
+  palette:
+    scheme: slate
+plugins:
+  - search:
+      prebuild_index: true
+  - mkdocstrings:
+      default_handler: python
+      handlers:
+        python:
+          setup_commands:
+            - import sys
+            - sys.path.insert(0, "src")
+          rendering:
+            show_source: false  
+      custom_templates: templates
+      watch:
+        - src
+markdown_extensions:
+  - pymdownx.inlinehilite
+  - pymdownx.highlight
+  - pymdownx.superfences
+  - admonition
+  - toc:
+      permalink: '¤'

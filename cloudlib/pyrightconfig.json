@@ -1,0 +1,14 @@
+{
+    "include": ["src", "tests"],
+    "venv": ".venv",
+    "venvPath": ".",
+    "executionEnvironments": [
+      {
+        "root": "src"
+      },
+      {
+        "root": "tests",
+        "extraPaths": ["src"]
+      }
+    ]
+}

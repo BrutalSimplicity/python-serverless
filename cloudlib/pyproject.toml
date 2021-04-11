@@ -1,0 +1,31 @@
+[tool.poetry]
+name = "py-cloudlib"
+version = "0.0.1"
+description = "A set of tools and pattern for creating cloud applications in Python 3."
+authors = ["kory.taborn@rackspace.com"]
+
+[tool.poetry.dependencies]
+python = "^3.8"
+requests = "^2.25.1"
+boto3 = "^1.17.0"
+yamale = "^3.0.4"
+dacite = "^1.6.0"
+aws-requests-auth = "^0.4.3"
+simplejson = "^3.17.2"
+
+[tool.poetry.dev-dependencies]
+pytest = "^6.2.2"
+tox = "^3.21.4"
+flake8 = "^3.8.4"
+pytest-cov = "^2.11.1"
+mkdocs = "^1.1.2"
+mkdocs-material = "^6.2.8"
+mkdocs-material-extensions = "^1.0.1"
+pymdown-extensions = "^8.1.1"
+mkdocstrings = "^0.14.0"
+tox-pyenv = "^1.1.0"
+black = "^20.8b1"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
