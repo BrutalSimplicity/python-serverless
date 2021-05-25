@@ -1,0 +1,10 @@
+[flake8]
+filename =
+    ./src/*.py
+    ./tests/*.py
+ignore =
+    E3
+    E128
+    W503
+max-complexity = 15
+max-line-length = 120

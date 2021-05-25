@@ -1,0 +1,90 @@
+{
+    "resource": "/registry/artifacts",
+    "path": "/registry/artifacts",
+    "httpMethod": "GET",
+    "headers": {
+        "Accept": "*/*",
+        "Accept-Encoding": "gzip, deflate",
+        "Host": "b5psmxlxm6.execute-api.us-east-1.amazonaws.com",
+        "User-Agent": "python-requests/2.24.0",
+        "x-amz-content-sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "x-amz-date": "20210114T204345Z",
+        "X-Amz-Security-Token": "FwoGZXIvYXdzED4aDD65XhiIjXG8jqfWgSK6Af1TeBxHwudDWC4r5IWk/xy7pe9bDMrxRWxrQhYXy7O6qGzSxLtLEXePaOcutidKGckM19DjUoAfsh1GiCWf0EME+BYc5WtaHlyZty+VusbZaz/PrFUBwkNPFhNyb2TQr91SBCbCPAnR9Qns+Vyqi78KL9Ajb2kFH460qZJWhq2ZEQejk+hyCNrEGIXHSqWm2gOGj1sCSsWvg0LhmY9bnasuWJIYs3yf4eHf7vNmHdjV7szaFknwwrmmryiv2YKABjItjW5PH2heeUvvEEpN03SLqfZOfp8UCYzIEqHkmXUe68f3gbj+v4/5d9V9OwRq",
+        "X-Amzn-Trace-Id": "Root=1-6000ad01-140ad2a479fa1c7b3c67ffaa",
+        "X-Forwarded-For": "208.94.155.245",
+        "X-Forwarded-Port": "443",
+        "X-Forwarded-Proto": "https"
+    },
+    "multiValueHeaders": {
+        "Accept": [
+            "*/*"
+        ],
+        "Accept-Encoding": [
+            "gzip, deflate"
+        ],
+        "Host": [
+            "b5psmxlxm6.execute-api.us-east-1.amazonaws.com"
+        ],
+        "User-Agent": [
+            "python-requests/2.24.0"
+        ],
+        "x-amz-content-sha256": [
+            "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        ],
+        "x-amz-date": [
+            "20210114T204345Z"
+        ],
+        "X-Amz-Security-Token": [
+            "FwoGZXIvYXdzED4aDD65XhiIjXG8jqfWgSK6Af1TeBxHwudDWC4r5IWk/xy7pe9bDMrxRWxrQhYXy7O6qGzSxLtLEXePaOcutidKGckM19DjUoAfsh1GiCWf0EME+BYc5WtaHlyZty+VusbZaz/PrFUBwkNPFhNyb2TQr91SBCbCPAnR9Qns+Vyqi78KL9Ajb2kFH460qZJWhq2ZEQejk+hyCNrEGIXHSqWm2gOGj1sCSsWvg0LhmY9bnasuWJIYs3yf4eHf7vNmHdjV7szaFknwwrmmryiv2YKABjItjW5PH2heeUvvEEpN03SLqfZOfp8UCYzIEqHkmXUe68f3gbj+v4/5d9V9OwRq"
+        ],
+        "X-Amzn-Trace-Id": [
+            "Root=1-6000ad01-140ad2a479fa1c7b3c67ffaa"
+        ],
+        "X-Forwarded-For": [
+            "208.94.155.245"
+        ],
+        "X-Forwarded-Port": [
+            "443"
+        ],
+        "X-Forwarded-Proto": [
+            "https"
+        ]
+    },
+    "queryStringParameters": null,
+    "multiValueQueryStringParameters": null,
+    "pathParameters": null,
+    "stageVariables": null,
+    "requestContext": {
+        "resourceId": "1u5zoq",
+        "resourcePath": "/registry/artifacts",
+        "operationName": "ListArtifacts",
+        "httpMethod": "GET",
+        "extendedRequestId": "ZJ_4MF43IAMFi0Q=",
+        "requestTime": "14/Jan/2021:20:43:45 +0000",
+        "path": "/v1-0-0-cpec-168-7/registry/artifacts",
+        "accountId": "775698200277",
+        "protocol": "HTTP/1.1",
+        "stage": "v1-0-0-cpec-168-7",
+        "domainPrefix": "b5psmxlxm6",
+        "requestTimeEpoch": 1610657025145,
+        "requestId": "f5e19cdf-3425-4100-b4a9-249676bd53f1",
+        "identity": {
+            "cognitoIdentityPoolId": null,
+            "accountId": "775698200277",
+            "cognitoIdentityId": null,
+            "caller": "AROA3JGZXG3K6M6TAZFKU:awssaml-cli-1610656943",
+            "sourceIp": "208.94.155.245",
+            "principalOrgId": "o-sbfm45508y",
+            "accessKey": "ASIA3JGZXG3K3KSBRNP3",
+            "cognitoAuthenticationType": null,
+            "cognitoAuthenticationProvider": null,
+            "userArn": "arn:aws:sts::775698200277:assumed-role/SWACSCloudAdmin/awssaml-cli-1610656943",
+            "userAgent": "python-requests/2.24.0",
+            "user": "AROA3JGZXG3K6M6TAZFKU:awssaml-cli-1610656943"
+        },
+        "domainName": "b5psmxlxm6.execute-api.us-east-1.amazonaws.com",
+        "apiId": "b5psmxlxm6"
+    },
+    "body": null,
+    "isBase64Encoded": false
+}

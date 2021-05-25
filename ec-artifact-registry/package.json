@@ -1,0 +1,22 @@
+{
+  "name": "ec-artifact-registry",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "directories": {
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@types/serverless": "^1.78.24",
+    "yaml": "^1.10.2"
+  },
+  "devDependencies": {
+    "@serverless/typescript": "^2.34.0",
+    "@types/node": "^14.14.37"
+  }
+}

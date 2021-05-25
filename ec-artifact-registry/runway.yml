@@ -1,0 +1,121 @@
+---
+deployments:
+
+  - modules:
+      - name: Setup
+        path: shared/resources/setup
+        type: cloudformation
+        tags:
+          - setup
+
+    regions:
+      - us-east-1
+
+    environments:
+      dev:
+        - 775698200277/us-east-1
+        - 775698200277/us-west-2
+      qa:
+        - 997873956369/us-east-1
+        - 997873956369/us-west-2
+      prod:
+        - 727406357928/us-east-1
+        - 727406357928/us-west-2
+
+    parameters:
+      # needed or runway wants a config file matching the environment
+      deploy: true
+
+  - modules:
+
+      - name: s3
+        type: terraform
+        path: shared/resources/s3
+        tags:
+          - s3
+          - app
+
+      - name: dynamo
+        type: terraform
+        path: shared/resources/dynamo
+        tags:
+          - dynamo
+          - app
+
+      - name: artifacts_service
+        path: artifacts_service
+        type: serverless
+        tags:
+          - artifacts_service
+          - app
+          - service
+        options:
+          skip_npm_ci: true
+          args:
+            - '--ssm_namespace'
+            - ${var ssm_namespace}/${env DEPLOY_ENVIRONMENT}
+
+
+      - name: deployment_service
+        path: deployment_service
+        type: serverless
+        tags:
+          - deployment_service
+          - app
+          - service
+        options:
+          skip_npm_ci: true
+
+      - name: acm
+        type: terraform
+        path: shared/resources/acm
+        tags:
+          - acm
+          - app
+
+    module_options:
+      terraform_backend_config:
+        bucket: ${var backend.bucket.${env AWS_REGION}.${env AWS_ACCOUNT_ID}}
+        dynamodb_table: static-ec-artifact-registry-tf-lock-table
+        workspace_key_prefix: ${env DEPLOY_ENVIRONMENT}
+        region: ${env AWS_REGION}
+
+    parameters:
+      region: ${env AWS_REGION}
+      swa_environment: ${var swa_environment.${env AWS_ACCOUNT_ID}}
+      python_runtime: "python3.8"
+      artifact_registry_bucket: artifact-registry-${env DEPLOY_ENVIRONMENT}-${env AWS_ACCOUNT_ID}-${env AWS_REGION}
+      artifact_registry_table: artifact-registry-table
+      ssm_namespace: ${var ssm_namespace}/${env DEPLOY_ENVIRONMENT}
+      base_hosted_zone_name: ${var route53_hosted_zone_name.${env AWS_ACCOUNT_ID}}
+      git_branch: ${env GIT_BRANCH}
+      ca_role: ${var cert_role.${env AWS_ACCOUNT_ID}}
+      ca_arn: ${var cert_authority_arn.${env AWS_ACCOUNT_ID}.${env AWS_REGION}}
+      create_hosted_zone: ${var regions.${env AWS_REGION}}
+      assume_role:
+        # local:  arn:aws:iam::701049741157:role/swa/SWACSCloudAdmin
+        dev: arn:aws:iam::701049741157:role/swa/SWAECJenkinsDeployRole-dev
+        qa: arn:aws:iam::197780633950:role/swa/SWAECJenkinsDeployRole-qa
+        prod: arn:aws:iam::071156055965:role/swa/SWAECJenkinsDeployRole-prod
+      valid_regions:
+        - us-east-1
+        - us-west-2
+      metric_namespace: "SWA/EC/ArtifactRegistry/${env DEPLOY_ENVIRONMENT}"
+
+    regions:
+      - us-east-1
+
+    environments:
+      dev:
+        - 775698200277/us-east-1
+        - 775698200277/us-west-2
+      qa:
+        - 997873956369/us-east-1
+        - 997873956369/us-west-2
+      prod:
+        - 727406357928/us-east-1
+        - 727406357928/us-west-2
+      
+variables:
+  file_path: shared/resources/variables.yml
+

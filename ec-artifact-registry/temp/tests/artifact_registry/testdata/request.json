@@ -1,0 +1,14 @@
+{
+    "resource": "/registry",
+    "path": "/registry/presigned_url",
+    "httpMethod": "GET",
+    "body": {
+        "stack_name": "Landing-Zone-Test",
+        "artifact_key": "/e2e-test/LandingZoneTest.zip",
+        "manifest_template": "CloudFormation:\n            RequestKWArgs:\n                StackName: Landing-Zone-Test\n                Tags:\n                - Key: SWA:Owner\n                Value: Enterprise Cloud\n                - Key: SWA:CostCenter\n                Value: \"24013\"\n                - Key: SWA:PID\n                Value: IO-800845\n                - Key: SWA:Environment\n                Value: Dev\n                - Key: SWA:Confidentiality\n                Value: SWA Internal Only\n                - Key: SWA:BusinessService\n                Value: EC\n                - Key: SWA:Compliance\n                Value: NA\n                - Key: EC:StackVersion\n                Value: \"1.0\"\n                - Key: SWA:Name\n                Value: Landing-Zone-Test\n            Regions:\n            - us-east-1\n            - us-west-2\n            Targets:\n            AccountIds:\n            - 775698200277\n            Template:\n            InZipFile: LandingZoneTest.zip\n            Name: LandingZoneTest.yml\n        ",
+        "owner_account_id": "775698200277",
+        "aws_region": "us-east-1",
+        "deployment_selector": "dev"
+    },
+    "isBase64Encoded": false
+}

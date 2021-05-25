@@ -1,0 +1,41 @@
+---
+site_name: EC Artifact Registry - User Guide
+image: southwest.log.png
+repo_name: ec/ec-artifact-registry
+repo_url: https://stash1-tools.swacorp.com/scm/ec/ec-artifact-registry.git
+use_directory_urls: false
+nav:
+  - Home: index.md
+  - Getting Started: getting.started.md
+  - Api: api.md
+plugins:
+  - diagrams
+  - search:
+      prebuild_index: true
+theme:
+  name: material
+markdown_extensions:
+  - meta
+  - codehilite:
+      linenums: true
+  - admonition
+  - pymdownx.arithmatex
+  - pymdownx.betterem:
+      smart_enable: all
+  - pymdownx.caret
+  - pymdownx.critic
+  - pymdownx.details
+  - pymdownx.inlinehilite
+  - pymdownx.magiclink
+  - pymdownx.mark
+  - pymdownx.smartsymbols
+  - pymdownx.superfences
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.tabbed
+  - pymdownx.tilde
+  - toc:
+      permalink: true
+extra_css:
+  - assets/extra.css
+  - assets/tabbed.css

@@ -1,0 +1,108 @@
+@Library('ec-shared-libraries') _
+import com.swacorp.ec.aws
+
+def repoName = "account-registry-events"
+
+// These variables are set in the Build stage because the
+// required context is not available in this scope.
+def buildVersion
+def taggedImageName
+def dockerImage
+
+pipeline {
+  agent { label 'ubuntu_with_docker' }
+
+  stages {
+    stage('Build') {
+      steps {
+        script {
+          // env.GIT_COMMIT requires a node context
+          buildVersion = "${BRANCH_NAME}.${env.GIT_COMMIT.substring(0, 8)}"
+          taggedImageName = "${repoName}:${buildVersion}"
+          dir("${env.WORKSPACE}/build_image") {
+            dockerImage = docker.build(taggedImageName, ".")
+          }
+        }
+      }
+    }
+    // stage('Test') {
+    //   steps {
+    //     script {
+    //       buildVersion = "${BRANCH_NAME}.${env.GIT_COMMIT.substring(0, 8)}"
+    //       taggedImageName = "${repoName}:${buildVersion}"
+    //       withEnv([
+    //         "IMAGE_ID=${taggedImageName}",
+    //       ]) {
+    //         sh '''
+    //           #!/bin/bash -l
+    //           ./test.sh $IMAGE_ID
+    //         '''
+    //       }
+    //     }
+    //   }
+    // }
+    stage('Dev') {
+      parallel {
+        stage('us-east-1') {
+          steps {
+            script {
+              ensureEcrRepoExists('us-east-1', repoName)
+              tagForRemoteAndPushToECR('us-east-1', dockerImage, repoName, buildVersion)
+            }
+            echo "Pushed ${taggedImageName} to ECR in us-east-1"
+          }
+        }
+        stage('us-west-2') {
+          steps {
+            script {
+              ensureEcrRepoExists('us-west-2', repoName)
+              tagForRemoteAndPushToECR('us-west-2', dockerImage, repoName, buildVersion)
+            }
+            echo "Pushed ${taggedImageName} to ECR in us-west-2"
+          }
+        }
+      }
+    }
+
+    stage('Prod') {
+      when { branch 'master' }
+      steps {
+        build([
+          job: 'promote-docker-image-mb/master',
+          propagate: true,
+          wait: true,
+          parameters: [
+            string(name: 'repoName', value: repoName),
+            string(name: 'sourceImageVersion', value: buildVersion)
+          ]
+        ])
+      }
+    }
+  }
+}
+
+def ensureEcrRepoExists(region, repoName) {
+  withAssumedRole(aws.prod.credentialsId, aws.prod.ecAdminAccountId, aws.swaOrgRoleName, region) {
+    echo "repo: ${repoName}"
+    withEnv([
+      "REGION=${region}",
+      "ECR_REPO=${repoName}"
+    ]) {
+      sh '''#!/bin/bash -l
+            if ! aws --region ${REGION} ecr describe-repositories --repository-name ${ECR_REPO}
+            then
+              aws --region ${REGION} ecr create-repository --repository-name ${ECR_REPO}
+            fi
+         '''
+    }
+  }
+}
+
+def tagForRemoteAndPushToECR(region, image, repoName, tag){
+  def registryUrl = "https://${aws.prod.ecAdminAccountId}.dkr.ecr.${region}.amazonaws.com/${repoName}"
+  def registryCreds = "ecr:${region}:ECR_USER"
+
+  docker.withRegistry(registryUrl, registryCreds) {
+    image.push(tag)
+  }
+}

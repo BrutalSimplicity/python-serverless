@@ -1,0 +1,13 @@
+namespace: static
+cfngin_bucket: ""
+tags:
+  "SWA:BusinessService": EC
+  "SWA:Confidentiality": SWA Internal Only
+  "SWA:CostCenter": "24009"
+  "SWA:Environment": ${environment}
+  "SWA:Owner": Enterprise Cloud
+  "SWA:PID": IT-01238
+
+stacks:
+  - name: artifact-registry-deployment-setup
+    template_path: cfn/cloudformation.yml

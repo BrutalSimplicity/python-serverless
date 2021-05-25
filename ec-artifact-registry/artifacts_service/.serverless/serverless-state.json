@@ -1,0 +1,1760 @@
+{
+  "service": {
+    "service": "ec-artifact-registry-service",
+    "serviceObject": {
+      "name": "ec-artifact-registry-service"
+    },
+    "provider": {
+      "name": "aws",
+      "runtime": "python3.8",
+      "endpointType": "regional",
+      "apiName": "ec-artifact-registry-service-api-krt",
+      "deploymentBucket": "static-artifact-registry-sls-bucket-775698200277-us-east-1",
+      "environment": {
+        "PYTHONPATH": "/var/task/src:/opt/python",
+        "ARTIFACTS_REGISTRY_TABLE": "artifact-registry-table",
+        "ARTIFACTS_REGISTRY_BUCKET": "artifact-registry-krt-775698200277-us-east-1",
+        "EVENT_SOURCES": "{\"dde_status\":\"swa.ec.landing-zone.status\",\"status\":\"swa.ec.artifact-registry.status\"}",
+        "LOGLEVEL": "DEBUG"
+      },
+      "lambdaHashingVersion": "20201221",
+      "iamRoleStatements": [
+        {
+          "Effect": "Allow",
+          "Action": [
+            "dynamodb:Query",
+            "dynamodb:Scan",
+            "dynamodb:GetItem",
+            "dynamodb:PutItem"
+          ],
+          "Resource": "arn:aws:dynamodb:us-east-1:775698200277:table/artifact-registry-table"
+        }
+      ],
+      "stage": "dev",
+      "variableSyntax": "\\${([^{}:]+?(?:\\(|:)(?:[^:{}][^{}]*?)?)}",
+      "region": "us-east-1",
+      "versionFunctions": true,
+      "deploymentBucketObject": {
+        "name": "static-artifact-registry-sls-bucket-775698200277-us-east-1",
+        "serverSideEncryption": "AES256"
+      },
+      "compiledCloudFormationTemplate": {
+        "AWSTemplateFormatVersion": "2010-09-09",
+        "Description": "The AWS CloudFormation template for this Serverless application",
+        "Resources": {
+          "ArtifactS3TriggerLogGroup": {
+            "Type": "AWS::Logs::LogGroup",
+            "Properties": {
+              "LogGroupName": "/aws/lambda/artifact-registry-s3-trigger-krt"
+            }
+          },
+          "ArtifactRegistryApiLogGroup": {
+            "Type": "AWS::Logs::LogGroup",
+            "Properties": {
+              "LogGroupName": "/aws/lambda/artifact-registry-api-krt"
+            }
+          },
+          "IamRoleLambdaExecution": {
+            "Type": "AWS::IAM::Role",
+            "Properties": {
+              "AssumeRolePolicyDocument": {
+                "Version": "2012-10-17",
+                "Statement": [
+                  {
+                    "Effect": "Allow",
+                    "Principal": {
+                      "Service": [
+                        "lambda.amazonaws.com"
+                      ]
+                    },
+                    "Action": [
+                      "sts:AssumeRole"
+                    ]
+                  }
+                ]
+              },
+              "Policies": [
+                {
+                  "PolicyName": {
+                    "Fn::Join": [
+                      "-",
+                      [
+                        "ec-artifact-registry-service",
+                        "krt",
+                        "lambda"
+                      ]
+                    ]
+                  },
+                  "PolicyDocument": {
+                    "Version": "2012-10-17",
+                    "Statement": [
+                      {
+                        "Effect": "Allow",
+                        "Action": [
+                          "logs:CreateLogStream",
+                          "logs:CreateLogGroup"
+                        ],
+                        "Resource": [
+                          {
+                            "Fn::Sub": "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/artifact-registry-s3-trigger-krt:*"
+                          },
+                          {
+                            "Fn::Sub": "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/artifact-registry-api-krt:*"
+                          }
+                        ]
+                      },
+                      {
+                        "Effect": "Allow",
+                        "Action": [
+                          "logs:PutLogEvents"
+                        ],
+                        "Resource": [
+                          {
+                            "Fn::Sub": "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/artifact-registry-s3-trigger-krt:*:*"
+                          },
+                          {
+                            "Fn::Sub": "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/artifact-registry-api-krt:*:*"
+                          }
+                        ]
+                      },
+                      {
+                        "$ref": "$[\"service\"][\"provider\"][\"iamRoleStatements\"][0]"
+                      },
+                      {
+                        "Effect": "Allow",
+                        "Action": [
+                          "xray:PutTraceSegments",
+                          "xray:PutTelemetryRecords"
+                        ],
+                        "Resource": [
+                          "*"
+                        ]
+                      },
+                      {
+                        "Effect": "Allow",
+                        "Action": [
+                          "kms:Decrypt"
+                        ],
+                        "Resource": [
+                          "arn:aws:kms:us-east-1:775698200277:key/b4e3fefd-162a-4668-889d-6d0b5257965a"
+                        ]
+                      },
+                      {
+                        "Effect": "Allow",
+                        "Action": [
+                          "kms:Decrypt",
+                          "kms:GenerateDataKey"
+                        ],
+                        "Resource": [
+                          "arn:aws:kms:us-east-1:775698200277:key/b4e3fefd-162a-4668-889d-6d0b5257965a"
+                        ]
+                      },
+                      {
+                        "Effect": "Allow",
+                        "Action": [
+                          "sqs:SendMessage"
+                        ],
+                        "Resource": [
+                          {
+                            "Fn::GetAtt": [
+                              "ArtifactS3TriggerLambdaFunctionDLQ",
+                              "Arn"
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                }
+              ],
+              "Path": "/",
+              "RoleName": {
+                "Fn::Join": [
+                  "-",
+                  [
+                    "ec-artifact-registry-service",
+                    "krt",
+                    {
+                      "Ref": "AWS::Region"
+                    },
+                    "lambdaRole"
+                  ]
+                ]
+              },
+              "ManagedPolicyArns": [
+                "arn:aws:iam::aws:policy/CloudWatchLambdaInsightsExecutionRolePolicy"
+              ]
+            }
+          },
+          "PythonRequirementsLambdaLayer": {
+            "Type": "AWS::Lambda::LayerVersion",
+            "Properties": {
+              "Content": {
+                "S3Bucket": "static-artifact-registry-sls-bucket-775698200277-us-east-1",
+                "S3Key": "serverless/ec-artifact-registry-service/krt/1617979355050-2021-04-09T14:42:35.050Z/pythonRequirements.zip"
+              },
+              "LayerName": "ec-artifact-registry-service-krt-python-requirements",
+              "Description": "Python requirements generated by serverless-python-requirements.",
+              "CompatibleRuntimes": [
+                "python3.8"
+              ]
+            }
+          },
+          "ArtifactS3TriggerLambdaFunction": {
+            "Type": "AWS::Lambda::Function",
+            "Properties": {
+              "Code": {
+                "S3Bucket": "static-artifact-registry-sls-bucket-775698200277-us-east-1",
+                "S3Key": "serverless/ec-artifact-registry-service/krt/1617979355050-2021-04-09T14:42:35.050Z/ec-artifact-registry-service.zip"
+              },
+              "Handler": "src/s3_trigger/entrypoint.lambda_handler",
+              "Runtime": "python3.8",
+              "FunctionName": "artifact-registry-s3-trigger-krt",
+              "MemorySize": 1024,
+              "Timeout": 6,
+              "TracingConfig": {
+                "Mode": "Active"
+              },
+              "Environment": {
+                "Variables": {
+                  "PYTHONPATH": "/var/task/src:/opt/python",
+                  "ARTIFACTS_REGISTRY_TABLE": "artifact-registry-table",
+                  "ARTIFACTS_REGISTRY_BUCKET": "artifact-registry-krt-775698200277-us-east-1",
+                  "EVENT_SOURCES": "{\"dde_status\":\"swa.ec.landing-zone.status\",\"status\":\"swa.ec.artifact-registry.status\"}",
+                  "LOGLEVEL": "DEBUG"
+                }
+              },
+              "Role": {
+                "Fn::GetAtt": [
+                  "IamRoleLambdaExecution",
+                  "Arn"
+                ]
+              },
+              "Layers": [
+                {
+                  "Ref": "PythonRequirementsLambdaLayer"
+                },
+                {
+                  "Fn::Sub": "arn:aws:lambda:${AWS::Region}:580247275435:layer:LambdaInsightsExtension:14"
+                }
+              ],
+              "KmsKeyArn": "arn:aws:kms:us-east-1:775698200277:key/b4e3fefd-162a-4668-889d-6d0b5257965a",
+              "DeadLetterConfig": {
+                "TargetArn": {
+                  "Fn::GetAtt": [
+                    "ArtifactS3TriggerLambdaFunctionDLQ",
+                    "Arn"
+                  ]
+                }
+              }
+            },
+            "DependsOn": [
+              "ArtifactS3TriggerLogGroup"
+            ]
+          },
+          "ArtifactRegistryApiLambdaFunction": {
+            "Type": "AWS::Lambda::Function",
+            "Properties": {
+              "Code": {
+                "S3Bucket": "static-artifact-registry-sls-bucket-775698200277-us-east-1",
+                "S3Key": "serverless/ec-artifact-registry-service/krt/1617979355050-2021-04-09T14:42:35.050Z/ec-artifact-registry-service.zip"
+              },
+              "Handler": "src/api/entrypoint.lambda_handler",
+              "Runtime": "python3.8",
+              "FunctionName": "artifact-registry-api-krt",
+              "MemorySize": 1024,
+              "Timeout": 6,
+              "TracingConfig": {
+                "Mode": "Active"
+              },
+              "Environment": {
+                "Variables": {
+                  "PYTHONPATH": "/var/task/src:/opt/python",
+                  "ARTIFACTS_REGISTRY_TABLE": "artifact-registry-table",
+                  "ARTIFACTS_REGISTRY_BUCKET": "artifact-registry-krt-775698200277-us-east-1",
+                  "EVENT_SOURCES": "{\"dde_status\":\"swa.ec.landing-zone.status\",\"status\":\"swa.ec.artifact-registry.status\"}",
+                  "LOGLEVEL": "DEBUG"
+                }
+              },
+              "Role": {
+                "Fn::GetAtt": [
+                  "ArtifactRegistryApiIamRoleLambdaExecution",
+                  "Arn"
+                ]
+              },
+              "Layers": [
+                {
+                  "Ref": "PythonRequirementsLambdaLayer"
+                },
+                {
+                  "Fn::Sub": "arn:aws:lambda:${AWS::Region}:580247275435:layer:LambdaInsightsExtension:14"
+                }
+              ],
+              "KmsKeyArn": "arn:aws:kms:us-east-1:775698200277:key/b4e3fefd-162a-4668-889d-6d0b5257965a",
+              "DeadLetterConfig": {
+                "TargetArn": {
+                  "Fn::GetAtt": [
+                    "ArtifactRegistryApiLambdaFunctionDLQ",
+                    "Arn"
+                  ]
+                }
+              }
+            },
+            "DependsOn": [
+              "ArtifactRegistryApiIamRoleLambdaExecution",
+              "ArtifactRegistryApiLogGroup"
+            ]
+          },
+          "ArtifactS3TriggerLambdaVersion7Dsjgzwx5JI1HS8OPUi1Z2wYjyTJLIJdoGDNhCHui2I": {
+            "Type": "AWS::Lambda::Version",
+            "DeletionPolicy": "Retain",
+            "Properties": {
+              "FunctionName": {
+                "Ref": "ArtifactS3TriggerLambdaFunction"
+              },
+              "CodeSha256": "pioEtsELS6NWvNrbjg4961vdjXjDaKUTEqayKQnTwNU="
+            }
+          },
+          "ArtifactRegistryApiLambdaVersionihsYxQ0sYAF0X1AJtOywvAEKlNomyyg9cQI9dxQAjo": {
+            "Type": "AWS::Lambda::Version",
+            "DeletionPolicy": "Retain",
+            "Properties": {
+              "FunctionName": {
+                "Ref": "ArtifactRegistryApiLambdaFunction"
+              },
+              "CodeSha256": "pioEtsELS6NWvNrbjg4961vdjXjDaKUTEqayKQnTwNU="
+            }
+          },
+          "ArtifactS3TriggerCustomS31": {
+            "Type": "Custom::S3",
+            "Version": 1,
+            "DependsOn": [
+              "ArtifactS3TriggerLambdaFunction",
+              "CustomDashresourceDashexistingDashs3LambdaFunction"
+            ],
+            "Properties": {
+              "ServiceToken": {
+                "Fn::GetAtt": [
+                  "CustomDashresourceDashexistingDashs3LambdaFunction",
+                  "Arn"
+                ]
+              },
+              "FunctionName": "artifact-registry-s3-trigger-krt",
+              "BucketName": "artifact-registry-krt-775698200277-us-east-1",
+              "BucketConfigs": [
+                {
+                  "Event": "s3:ObjectCreated:*",
+                  "Rules": []
+                }
+              ]
+            }
+          },
+          "IamRoleCustomResourcesLambdaExecution": {
+            "Type": "AWS::IAM::Role",
+            "Properties": {
+              "AssumeRolePolicyDocument": {
+                "Version": "2012-10-17",
+                "Statement": [
+                  {
+                    "Effect": "Allow",
+                    "Principal": {
+                      "Service": [
+                        "lambda.amazonaws.com"
+                      ]
+                    },
+                    "Action": [
+                      "sts:AssumeRole"
+                    ]
+                  }
+                ]
+              },
+              "Policies": [
+                {
+                  "PolicyName": {
+                    "Fn::Join": [
+                      "-",
+                      [
+                        "krt",
+                        "ec-artifact-registry-service",
+                        "custom-resources-lambda"
+                      ]
+                    ]
+                  },
+                  "PolicyDocument": {
+                    "Version": "2012-10-17",
+                    "Statement": [
+                      {
+                        "Effect": "Allow",
+                        "Resource": {
+                          "Fn::Join": [
+                            ":",
+                            [
+                              "arn",
+                              {
+                                "Ref": "AWS::Partition"
+                              },
+                              "s3",
+                              "",
+                              "",
+                              "artifact-registry-krt-775698200277-us-east-1"
+                            ]
+                          ]
+                        },
+                        "Action": [
+                          "s3:PutBucketNotification",
+                          "s3:GetBucketNotification"
+                        ]
+                      },
+                      {
+                        "Effect": "Allow",
+                        "Resource": {
+                          "Fn::Join": [
+                            ":",
+                            [
+                              "arn",
+                              {
+                                "Ref": "AWS::Partition"
+                              },
+                              "lambda",
+                              {
+                                "Ref": "AWS::Region"
+                              },
+                              {
+                                "Ref": "AWS::AccountId"
+                              },
+                              "function",
+                              "*"
+                            ]
+                          ]
+                        },
+                        "Action": [
+                          "lambda:AddPermission",
+                          "lambda:RemovePermission"
+                        ]
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          },
+          "CustomDashresourceDashexistingDashs3LambdaFunction": {
+            "Type": "AWS::Lambda::Function",
+            "Properties": {
+              "Code": {
+                "S3Bucket": "static-artifact-registry-sls-bucket-775698200277-us-east-1",
+                "S3Key": "serverless/ec-artifact-registry-service/krt/1617979355050-2021-04-09T14:42:35.050Z/custom-resources.zip"
+              },
+              "FunctionName": "ec-artifact-registry-service-krt-custom-resource-existing-s3",
+              "Handler": "s3/handler.handler",
+              "MemorySize": 1024,
+              "Runtime": "nodejs12.x",
+              "Timeout": 180,
+              "Role": {
+                "Fn::GetAtt": [
+                  "IamRoleCustomResourcesLambdaExecution",
+                  "Arn"
+                ]
+              }
+            },
+            "DependsOn": [
+              "IamRoleCustomResourcesLambdaExecution"
+            ]
+          },
+          "ApiGatewayRestApi": {
+            "Type": "AWS::ApiGateway::RestApi",
+            "Properties": {
+              "Name": "ec-artifact-registry-service-api-krt",
+              "EndpointConfiguration": {
+                "Types": [
+                  "REGIONAL"
+                ]
+              },
+              "Policy": ""
+            }
+          },
+          "ApiGatewayResourceArtifactkeyVar": {
+            "Type": "AWS::ApiGateway::Resource",
+            "Properties": {
+              "ParentId": {
+                "Fn::GetAtt": [
+                  "ApiGatewayRestApi",
+                  "RootResourceId"
+                ]
+              },
+              "PathPart": "{artifact_key}",
+              "RestApiId": {
+                "Ref": "ApiGatewayRestApi"
+              }
+            }
+          },
+          "ApiGatewayResourceUpload": {
+            "Type": "AWS::ApiGateway::Resource",
+            "Properties": {
+              "ParentId": {
+                "Fn::GetAtt": [
+                  "ApiGatewayRestApi",
+                  "RootResourceId"
+                ]
+              },
+              "PathPart": "upload",
+              "RestApiId": {
+                "Ref": "ApiGatewayRestApi"
+              }
+            }
+          },
+          "ApiGatewayResourceUploadStatus": {
+            "Type": "AWS::ApiGateway::Resource",
+            "Properties": {
+              "ParentId": {
+                "Ref": "ApiGatewayResourceUpload"
+              },
+              "PathPart": "status",
+              "RestApiId": {
+                "Ref": "ApiGatewayRestApi"
+              }
+            }
+          },
+          "ApiGatewayResourceUploadStatusEtagVar": {
+            "Type": "AWS::ApiGateway::Resource",
+            "Properties": {
+              "ParentId": {
+                "Ref": "ApiGatewayResourceUploadStatus"
+              },
+              "PathPart": "{etag}",
+              "RestApiId": {
+                "Ref": "ApiGatewayRestApi"
+              }
+            }
+          },
+          "ApiGatewayMethodArtifactkeyVarGet": {
+            "Type": "AWS::ApiGateway::Method",
+            "Properties": {
+              "HttpMethod": "GET",
+              "RequestParameters": {
+                "method.request.querystring.version": false,
+                "method.request.path.key": true
+              },
+              "ResourceId": {
+                "Ref": "ApiGatewayResourceArtifactkeyVar"
+              },
+              "RestApiId": {
+                "Ref": "ApiGatewayRestApi"
+              },
+              "ApiKeyRequired": false,
+              "AuthorizationType": "AWS_IAM",
+              "Integration": {
+                "IntegrationHttpMethod": "POST",
+                "Type": "AWS_PROXY",
+                "Uri": {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "arn:",
+                      {
+                        "Ref": "AWS::Partition"
+                      },
+                      ":apigateway:",
+                      {
+                        "Ref": "AWS::Region"
+                      },
+                      ":lambda:path/2015-03-31/functions/",
+                      {
+                        "Fn::GetAtt": [
+                          "ArtifactRegistryApiLambdaFunction",
+                          "Arn"
+                        ]
+                      },
+                      "/invocations"
+                    ]
+                  ]
+                }
+              },
+              "MethodResponses": []
+            }
+          },
+          "ApiGatewayMethodGet": {
+            "Type": "AWS::ApiGateway::Method",
+            "Properties": {
+              "HttpMethod": "GET",
+              "RequestParameters": {},
+              "ResourceId": {
+                "Fn::GetAtt": [
+                  "ApiGatewayRestApi",
+                  "RootResourceId"
+                ]
+              },
+              "RestApiId": {
+                "Ref": "ApiGatewayRestApi"
+              },
+              "ApiKeyRequired": false,
+              "AuthorizationType": "AWS_IAM",
+              "Integration": {
+                "IntegrationHttpMethod": "POST",
+                "Type": "AWS_PROXY",
+                "Uri": {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "arn:",
+                      {
+                        "Ref": "AWS::Partition"
+                      },
+                      ":apigateway:",
+                      {
+                        "Ref": "AWS::Region"
+                      },
+                      ":lambda:path/2015-03-31/functions/",
+                      {
+                        "Fn::GetAtt": [
+                          "ArtifactRegistryApiLambdaFunction",
+                          "Arn"
+                        ]
+                      },
+                      "/invocations"
+                    ]
+                  ]
+                }
+              },
+              "MethodResponses": []
+            }
+          },
+          "ApiGatewayMethodUploadStatusEtagVarGet": {
+            "Type": "AWS::ApiGateway::Method",
+            "Properties": {
+              "HttpMethod": "GET",
+              "RequestParameters": {
+                "method.request.path.etag": true
+              },
+              "ResourceId": {
+                "Ref": "ApiGatewayResourceUploadStatusEtagVar"
+              },
+              "RestApiId": {
+                "Ref": "ApiGatewayRestApi"
+              },
+              "ApiKeyRequired": false,
+              "AuthorizationType": "AWS_IAM",
+              "Integration": {
+                "IntegrationHttpMethod": "POST",
+                "Type": "AWS_PROXY",
+                "Uri": {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "arn:",
+                      {
+                        "Ref": "AWS::Partition"
+                      },
+                      ":apigateway:",
+                      {
+                        "Ref": "AWS::Region"
+                      },
+                      ":lambda:path/2015-03-31/functions/",
+                      {
+                        "Fn::GetAtt": [
+                          "ArtifactRegistryApiLambdaFunction",
+                          "Arn"
+                        ]
+                      },
+                      "/invocations"
+                    ]
+                  ]
+                }
+              },
+              "MethodResponses": []
+            }
+          },
+          "ApiGatewayMethodUploadGet": {
+            "Type": "AWS::ApiGateway::Method",
+            "Properties": {
+              "HttpMethod": "GET",
+              "RequestParameters": {
+                "method.request.querystring.s3_key": true
+              },
+              "ResourceId": {
+                "Ref": "ApiGatewayResourceUpload"
+              },
+              "RestApiId": {
+                "Ref": "ApiGatewayRestApi"
+              },
+              "ApiKeyRequired": false,
+              "AuthorizationType": "AWS_IAM",
+              "Integration": {
+                "IntegrationHttpMethod": "POST",
+                "Type": "AWS_PROXY",
+                "Uri": {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "arn:",
+                      {
+                        "Ref": "AWS::Partition"
+                      },
+                      ":apigateway:",
+                      {
+                        "Ref": "AWS::Region"
+                      },
+                      ":lambda:path/2015-03-31/functions/",
+                      {
+                        "Fn::GetAtt": [
+                          "ArtifactRegistryApiLambdaFunction",
+                          "Arn"
+                        ]
+                      },
+                      "/invocations"
+                    ]
+                  ]
+                }
+              },
+              "MethodResponses": []
+            }
+          },
+          "ApiGatewayDeployment1617979329421": {
+            "Type": "AWS::ApiGateway::Deployment",
+            "Properties": {
+              "RestApiId": {
+                "Ref": "ApiGatewayRestApi"
+              },
+              "StageName": "krt"
+            },
+            "DependsOn": [
+              "ApiGatewayMethodArtifactkeyVarGet",
+              "ApiGatewayMethodGet",
+              "ApiGatewayMethodUploadStatusEtagVarGet",
+              "ApiGatewayMethodUploadGet"
+            ]
+          },
+          "ArtifactRegistryApiLambdaPermissionApiGateway": {
+            "Type": "AWS::Lambda::Permission",
+            "Properties": {
+              "FunctionName": {
+                "Fn::GetAtt": [
+                  "ArtifactRegistryApiLambdaFunction",
+                  "Arn"
+                ]
+              },
+              "Action": "lambda:InvokeFunction",
+              "Principal": "apigateway.amazonaws.com",
+              "SourceArn": {
+                "Fn::Join": [
+                  "",
+                  [
+                    "arn:",
+                    {
+                      "Ref": "AWS::Partition"
+                    },
+                    ":execute-api:",
+                    {
+                      "Ref": "AWS::Region"
+                    },
+                    ":",
+                    {
+                      "Ref": "AWS::AccountId"
+                    },
+                    ":",
+                    {
+                      "Ref": "ApiGatewayRestApi"
+                    },
+                    "/*/*"
+                  ]
+                ]
+              }
+            }
+          },
+          "ArtifactRegistryApiIamRoleLambdaExecution": {
+            "Type": "AWS::IAM::Role",
+            "Properties": {
+              "AssumeRolePolicyDocument": {
+                "Version": "2012-10-17",
+                "Statement": [
+                  {
+                    "Effect": "Allow",
+                    "Principal": {
+                      "Service": [
+                        "lambda.amazonaws.com"
+                      ]
+                    },
+                    "Action": [
+                      "sts:AssumeRole"
+                    ]
+                  }
+                ]
+              },
+              "Policies": [
+                {
+                  "PolicyName": {
+                    "Fn::Join": [
+                      "-",
+                      [
+                        "ec-artifact-registry-service",
+                        "krt",
+                        "lambda"
+                      ]
+                    ]
+                  },
+                  "PolicyDocument": {
+                    "Version": "2012-10-17",
+                    "Statement": [
+                      {
+                        "Effect": "Allow",
+                        "Action": [
+                          "logs:CreateLogStream",
+                          "logs:CreateLogGroup",
+                          "logs:PutLogEvents"
+                        ],
+                        "Resource": [
+                          {
+                            "Fn::Sub": "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/artifact-registry-api-krt:*:*"
+                          }
+                        ]
+                      },
+                      {
+                        "$ref": "$[\"service\"][\"provider\"][\"iamRoleStatements\"][0]"
+                      },
+                      {
+                        "Effect": "Allow",
+                        "Action": [
+                          "s3:PutObject"
+                        ],
+                        "Resource": [
+                          "arn:aws:s3:::artifact-registry-krt-775698200277-us-east-1",
+                          "arn:aws:s3:::artifact-registry-krt-775698200277-us-east-1/*"
+                        ]
+                      },
+                      {
+                        "Effect": "Allow",
+                        "Action": [
+                          "kms:Decrypt"
+                        ],
+                        "Resource": [
+                          "arn:aws:kms:us-east-1:775698200277:key/b4e3fefd-162a-4668-889d-6d0b5257965a"
+                        ]
+                      },
+                      {
+                        "Effect": "Allow",
+                        "Action": [
+                          "kms:Decrypt",
+                          "kms:GenerateDataKey"
+                        ],
+                        "Resource": [
+                          "arn:aws:kms:us-east-1:775698200277:key/b4e3fefd-162a-4668-889d-6d0b5257965a"
+                        ]
+                      },
+                      {
+                        "Effect": "Allow",
+                        "Action": [
+                          "sqs:SendMessage"
+                        ],
+                        "Resource": [
+                          {
+                            "Fn::GetAtt": [
+                              "ArtifactRegistryApiLambdaFunctionDLQ",
+                              "Arn"
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                }
+              ],
+              "Path": "/",
+              "RoleName": "ArtifactRegistryS3ApiRole-krt",
+              "ManagedPolicyArns": [
+                "arn:aws:iam::aws:policy/CloudWatchLambdaInsightsExecutionRolePolicy"
+              ]
+            }
+          },
+          "ArtifactS3TriggerLambdaFunctionDLQ": {
+            "Type": "AWS::SQS::Queue",
+            "Properties": {
+              "QueueName": "ArtifactS3TriggerLambdaFunction-DeadLetterQueue-krt",
+              "KmsMasterKeyId": "arn:aws:kms:us-east-1:775698200277:key/b4e3fefd-162a-4668-889d-6d0b5257965a"
+            }
+          },
+          "ArtifactS3TriggerLambdaFunctionDeadLetterErrorsAlarm": {
+            "Type": "AWS::CloudWatch::Alarm",
+            "Properties": {
+              "AlarmName": "DeadLetterErrors-ArtifactS3TriggerLambdaFunction-krt",
+              "AlarmDescription": "This alarm indicates the lambda function is having errors putting messages on the Dead-Letter queue",
+              "Namespace": "AWS/Lambda",
+              "Dimensions": [
+                {
+                  "Name": "FunctionName",
+                  "Value": "artifact-registry-s3-trigger-krt"
+                }
+              ],
+              "EvaluationPeriods": 2,
+              "DatapointsToAlarm": 2,
+              "Period": 60,
+              "MetricName": "DeadLetterErrors",
+              "Threshold": 1,
+              "TreatMissingData": "notBreaching",
+              "ComparisonOperator": "GreaterThanOrEqualToThreshold",
+              "Statistic": "Sum",
+              "AlarmActions": [
+                {
+                  "Ref": "ArtifactS3TriggerLambdaFunctionDeadLetterErrorsAlarmTopic"
+                }
+              ],
+              "OKActions": [
+                {
+                  "Ref": "ArtifactS3TriggerLambdaFunctionDeadLetterErrorsAlarmTopic"
+                }
+              ]
+            }
+          },
+          "ArtifactS3TriggerLambdaFunctionDeadLetterErrorsAlarmTopic": {
+            "Type": "AWS::SNS::Topic",
+            "Properties": {
+              "TopicName": "ArtifactS3TriggerLambdaFunctionDeadLetterErrorsAlarmTopic-krt",
+              "KmsMasterKeyId": "arn:aws:kms:us-east-1:775698200277:key/b4e3fefd-162a-4668-889d-6d0b5257965a"
+            }
+          },
+          "ArtifactS3TriggerLambdaFunctionDeadLetterMessagesAlarm": {
+            "Type": "AWS::CloudWatch::Alarm",
+            "Properties": {
+              "AlarmName": "DeadLetterMessages-ArtifactS3TriggerLambdaFunction-krt",
+              "AlarmDescription": "This alarm indicates the lambda has messages waiting on the dead letter queue",
+              "Namespace": "AWS/SQS",
+              "Dimensions": [
+                {
+                  "Name": "FunctionName",
+                  "Value": "artifact-registry-s3-trigger-krt"
+                }
+              ],
+              "EvaluationPeriods": 1,
+              "DatapointsToAlarm": 1,
+              "Period": 60,
+              "MetricName": "ApproximateNumberOfMessagesVisible",
+              "Threshold": 1,
+              "TreatMissingData": "notBreaching",
+              "ComparisonOperator": "GreaterThanOrEqualToThreshold",
+              "Statistic": "Sum",
+              "AlarmActions": [
+                {
+                  "Ref": "ArtifactS3TriggerLambdaFunctionDeadLetterMessagesAlarmTopic"
+                }
+              ],
+              "OKActions": [
+                {
+                  "Ref": "ArtifactS3TriggerLambdaFunctionDeadLetterMessagesAlarmTopic"
+                }
+              ]
+            }
+          },
+          "ArtifactS3TriggerLambdaFunctionDeadLetterMessagesAlarmTopic": {
+            "Type": "AWS::SNS::Topic",
+            "Properties": {
+              "TopicName": "ArtifactS3TriggerLambdaFunctionDeadLetterMessagesAlarmTopic-krt",
+              "KmsMasterKeyId": "arn:aws:kms:us-east-1:775698200277:key/b4e3fefd-162a-4668-889d-6d0b5257965a"
+            }
+          },
+          "ArtifactS3TriggerLambdaFunctionExcessiveMemoryUsageAlarm": {
+            "Type": "AWS::CloudWatch::Alarm",
+            "Properties": {
+              "AlarmName": "ExcessiveMemoryUsage-ArtifactS3TriggerLambdaFunction-krt",
+              "AlarmDescription": "This alarm indicates the lambda function is exceeding its memory usage threshold.",
+              "Namespace": "LambdaInsights",
+              "Dimensions": [
+                {
+                  "Name": "function_name",
+                  "Value": "artifact-registry-s3-trigger-krt"
+                }
+              ],
+              "EvaluationPeriods": 2,
+              "DatapointsToAlarm": 2,
+              "Period": 60,
+              "MetricName": "memory_utilization",
+              "Threshold": 75,
+              "TreatMissingData": "ignore",
+              "ComparisonOperator": "GreaterThanOrEqualToThreshold",
+              "Statistic": "Average",
+              "AlarmActions": [
+                {
+                  "Ref": "ArtifactS3TriggerLambdaFunctionExcessiveMemoryUsageAlarmTopic"
+                }
+              ],
+              "OKActions": [
+                {
+                  "Ref": "ArtifactS3TriggerLambdaFunctionExcessiveMemoryUsageAlarmTopic"
+                }
+              ]
+            }
+          },
+          "ArtifactS3TriggerLambdaFunctionExcessiveMemoryUsageAlarmTopic": {
+            "Type": "AWS::SNS::Topic",
+            "Properties": {
+              "TopicName": "ArtifactS3TriggerLambdaFunctionExcessiveMemoryUsageAlarmTopic-krt",
+              "KmsMasterKeyId": "arn:aws:kms:us-east-1:775698200277:key/b4e3fefd-162a-4668-889d-6d0b5257965a"
+            }
+          },
+          "ArtifactS3TriggerLambdaFunctionExecutionTimeAlarm": {
+            "Type": "AWS::CloudWatch::Alarm",
+            "Properties": {
+              "AlarmName": "ExcessiveExecutionTime-ArtifactS3TriggerLambdaFunction-krt",
+              "AlarmDescription": "This alarm indicates the lambda function's execution time is getting close to it's configured timeout",
+              "Namespace": "AWS/Lambda",
+              "Dimensions": [
+                {
+                  "Name": "FunctionName",
+                  "Value": "artifact-registry-s3-trigger-krt"
+                }
+              ],
+              "EvaluationPeriods": 1,
+              "DatapointsToAlarm": 1,
+              "Period": 60,
+              "MetricName": "Duration",
+              "Threshold": 4.5,
+              "TreatMissingData": "ignore",
+              "ComparisonOperator": "GreaterThanOrEqualToThreshold",
+              "Statistic": "Average",
+              "AlarmActions": [
+                {
+                  "Ref": "ArtifactS3TriggerLambdaFunctionExecutionTimeAlarmTopic"
+                }
+              ],
+              "OKActions": [
+                {
+                  "Ref": "ArtifactS3TriggerLambdaFunctionExecutionTimeAlarmTopic"
+                }
+              ]
+            }
+          },
+          "ArtifactS3TriggerLambdaFunctionExecutionTimeAlarmTopic": {
+            "Type": "AWS::SNS::Topic",
+            "Properties": {
+              "TopicName": "ArtifactS3TriggerLambdaFunctionExecutionTimeAlarmTopic-krt",
+              "KmsMasterKeyId": "arn:aws:kms:us-east-1:775698200277:key/b4e3fefd-162a-4668-889d-6d0b5257965a"
+            }
+          },
+          "ArtifactS3TriggerLambdaFunctionThrottleErrorsAlarm": {
+            "Type": "AWS::CloudWatch::Alarm",
+            "Properties": {
+              "AlarmName": "ThrottleErrors-ArtifactS3TriggerLambdaFunction-krt",
+              "AlarmDescription": "This alarm indicates the lambda is being throttled",
+              "Namespace": "AWS/Lambda",
+              "Dimensions": [
+                {
+                  "Name": "FunctionName",
+                  "Value": "artifact-registry-s3-trigger-krt"
+                }
+              ],
+              "EvaluationPeriods": 2,
+              "DatapointsToAlarm": 2,
+              "Period": 60,
+              "MetricName": "Throttles",
+              "Threshold": 1,
+              "TreatMissingData": "notBreaching",
+              "ComparisonOperator": "GreaterThanOrEqualToThreshold",
+              "Statistic": "Sum",
+              "AlarmActions": [
+                {
+                  "Ref": "ArtifactS3TriggerLambdaFunctionThrottleErrorsAlarmTopic"
+                }
+              ],
+              "OKActions": [
+                {
+                  "Ref": "ArtifactS3TriggerLambdaFunctionThrottleErrorsAlarmTopic"
+                }
+              ]
+            }
+          },
+          "ArtifactS3TriggerLambdaFunctionThrottleErrorsAlarmTopic": {
+            "Type": "AWS::SNS::Topic",
+            "Properties": {
+              "TopicName": "ArtifactS3TriggerLambdaFunctionThrottleErrorsAlarmTopic-krt",
+              "KmsMasterKeyId": "arn:aws:kms:us-east-1:775698200277:key/b4e3fefd-162a-4668-889d-6d0b5257965a"
+            }
+          },
+          "ArtifactRegistryApiLambdaFunctionDLQ": {
+            "Type": "AWS::SQS::Queue",
+            "Properties": {
+              "QueueName": "ArtifactRegistryApiLambdaFunction-DeadLetterQueue-krt",
+              "KmsMasterKeyId": "arn:aws:kms:us-east-1:775698200277:key/b4e3fefd-162a-4668-889d-6d0b5257965a"
+            }
+          },
+          "ArtifactRegistryApiLambdaFunctionDeadLetterErrorsAlarm": {
+            "Type": "AWS::CloudWatch::Alarm",
+            "Properties": {
+              "AlarmName": "DeadLetterErrors-ArtifactRegistryApiLambdaFunction-krt",
+              "AlarmDescription": "This alarm indicates the lambda function is having errors putting messages on the Dead-Letter queue",
+              "Namespace": "AWS/Lambda",
+              "Dimensions": [
+                {
+                  "Name": "FunctionName",
+                  "Value": "artifact-registry-api-krt"
+                }
+              ],
+              "EvaluationPeriods": 2,
+              "DatapointsToAlarm": 2,
+              "Period": 60,
+              "MetricName": "DeadLetterErrors",
+              "Threshold": 1,
+              "TreatMissingData": "notBreaching",
+              "ComparisonOperator": "GreaterThanOrEqualToThreshold",
+              "Statistic": "Sum",
+              "AlarmActions": [
+                {
+                  "Ref": "ArtifactRegistryApiLambdaFunctionDeadLetterErrorsAlarmTopic"
+                }
+              ],
+              "OKActions": [
+                {
+                  "Ref": "ArtifactRegistryApiLambdaFunctionDeadLetterErrorsAlarmTopic"
+                }
+              ]
+            }
+          },
+          "ArtifactRegistryApiLambdaFunctionDeadLetterErrorsAlarmTopic": {
+            "Type": "AWS::SNS::Topic",
+            "Properties": {
+              "TopicName": "ArtifactRegistryApiLambdaFunctionDeadLetterErrorsAlarmTopic-krt",
+              "KmsMasterKeyId": "arn:aws:kms:us-east-1:775698200277:key/b4e3fefd-162a-4668-889d-6d0b5257965a"
+            }
+          },
+          "ArtifactRegistryApiLambdaFunctionDeadLetterMessagesAlarm": {
+            "Type": "AWS::CloudWatch::Alarm",
+            "Properties": {
+              "AlarmName": "DeadLetterMessages-ArtifactRegistryApiLambdaFunction-krt",
+              "AlarmDescription": "This alarm indicates the lambda has messages waiting on the dead letter queue",
+              "Namespace": "AWS/SQS",
+              "Dimensions": [
+                {
+                  "Name": "FunctionName",
+                  "Value": "artifact-registry-api-krt"
+                }
+              ],
+              "EvaluationPeriods": 1,
+              "DatapointsToAlarm": 1,
+              "Period": 60,
+              "MetricName": "ApproximateNumberOfMessagesVisible",
+              "Threshold": 1,
+              "TreatMissingData": "notBreaching",
+              "ComparisonOperator": "GreaterThanOrEqualToThreshold",
+              "Statistic": "Sum",
+              "AlarmActions": [
+                {
+                  "Ref": "ArtifactRegistryApiLambdaFunctionDeadLetterMessagesAlarmTopic"
+                }
+              ],
+              "OKActions": [
+                {
+                  "Ref": "ArtifactRegistryApiLambdaFunctionDeadLetterMessagesAlarmTopic"
+                }
+              ]
+            }
+          },
+          "ArtifactRegistryApiLambdaFunctionDeadLetterMessagesAlarmTopic": {
+            "Type": "AWS::SNS::Topic",
+            "Properties": {
+              "TopicName": "ArtifactRegistryApiLambdaFunctionDeadLetterMessagesAlarmTopic-krt",
+              "KmsMasterKeyId": "arn:aws:kms:us-east-1:775698200277:key/b4e3fefd-162a-4668-889d-6d0b5257965a"
+            }
+          },
+          "ArtifactRegistryApiLambdaFunctionExcessiveMemoryUsageAlarm": {
+            "Type": "AWS::CloudWatch::Alarm",
+            "Properties": {
+              "AlarmName": "ExcessiveMemoryUsage-ArtifactRegistryApiLambdaFunction-krt",
+              "AlarmDescription": "This alarm indicates the lambda function is exceeding its memory usage threshold.",
+              "Namespace": "LambdaInsights",
+              "Dimensions": [
+                {
+                  "Name": "function_name",
+                  "Value": "artifact-registry-api-krt"
+                }
+              ],
+              "EvaluationPeriods": 2,
+              "DatapointsToAlarm": 2,
+              "Period": 60,
+              "MetricName": "memory_utilization",
+              "Threshold": 75,
+              "TreatMissingData": "ignore",
+              "ComparisonOperator": "GreaterThanOrEqualToThreshold",
+              "Statistic": "Average",
+              "AlarmActions": [
+                {
+                  "Ref": "ArtifactRegistryApiLambdaFunctionExcessiveMemoryUsageAlarmTopic"
+                }
+              ],
+              "OKActions": [
+                {
+                  "Ref": "ArtifactRegistryApiLambdaFunctionExcessiveMemoryUsageAlarmTopic"
+                }
+              ]
+            }
+          },
+          "ArtifactRegistryApiLambdaFunctionExcessiveMemoryUsageAlarmTopic": {
+            "Type": "AWS::SNS::Topic",
+            "Properties": {
+              "TopicName": "ArtifactRegistryApiLambdaFunctionExcessiveMemoryUsageAlarmTopic-krt",
+              "KmsMasterKeyId": "arn:aws:kms:us-east-1:775698200277:key/b4e3fefd-162a-4668-889d-6d0b5257965a"
+            }
+          },
+          "ArtifactRegistryApiLambdaFunctionExecutionTimeAlarm": {
+            "Type": "AWS::CloudWatch::Alarm",
+            "Properties": {
+              "AlarmName": "ExcessiveExecutionTime-ArtifactRegistryApiLambdaFunction-krt",
+              "AlarmDescription": "This alarm indicates the lambda function's execution time is getting close to it's configured timeout",
+              "Namespace": "AWS/Lambda",
+              "Dimensions": [
+                {
+                  "Name": "FunctionName",
+                  "Value": "artifact-registry-api-krt"
+                }
+              ],
+              "EvaluationPeriods": 1,
+              "DatapointsToAlarm": 1,
+              "Period": 60,
+              "MetricName": "Duration",
+              "Threshold": 4.5,
+              "TreatMissingData": "ignore",
+              "ComparisonOperator": "GreaterThanOrEqualToThreshold",
+              "Statistic": "Average",
+              "AlarmActions": [
+                {
+                  "Ref": "ArtifactRegistryApiLambdaFunctionExecutionTimeAlarmTopic"
+                }
+              ],
+              "OKActions": [
+                {
+                  "Ref": "ArtifactRegistryApiLambdaFunctionExecutionTimeAlarmTopic"
+                }
+              ]
+            }
+          },
+          "ArtifactRegistryApiLambdaFunctionExecutionTimeAlarmTopic": {
+            "Type": "AWS::SNS::Topic",
+            "Properties": {
+              "TopicName": "ArtifactRegistryApiLambdaFunctionExecutionTimeAlarmTopic-krt",
+              "KmsMasterKeyId": "arn:aws:kms:us-east-1:775698200277:key/b4e3fefd-162a-4668-889d-6d0b5257965a"
+            }
+          },
+          "ArtifactRegistryApiLambdaFunctionThrottleErrorsAlarm": {
+            "Type": "AWS::CloudWatch::Alarm",
+            "Properties": {
+              "AlarmName": "ThrottleErrors-ArtifactRegistryApiLambdaFunction-krt",
+              "AlarmDescription": "This alarm indicates the lambda is being throttled",
+              "Namespace": "AWS/Lambda",
+              "Dimensions": [
+                {
+                  "Name": "FunctionName",
+                  "Value": "artifact-registry-api-krt"
+                }
+              ],
+              "EvaluationPeriods": 2,
+              "DatapointsToAlarm": 2,
+              "Period": 60,
+              "MetricName": "Throttles",
+              "Threshold": 1,
+              "TreatMissingData": "notBreaching",
+              "ComparisonOperator": "GreaterThanOrEqualToThreshold",
+              "Statistic": "Sum",
+              "AlarmActions": [
+                {
+                  "Ref": "ArtifactRegistryApiLambdaFunctionThrottleErrorsAlarmTopic"
+                }
+              ],
+              "OKActions": [
+                {
+                  "Ref": "ArtifactRegistryApiLambdaFunctionThrottleErrorsAlarmTopic"
+                }
+              ]
+            }
+          },
+          "ArtifactRegistryApiLambdaFunctionThrottleErrorsAlarmTopic": {
+            "Type": "AWS::SNS::Topic",
+            "Properties": {
+              "TopicName": "ArtifactRegistryApiLambdaFunctionThrottleErrorsAlarmTopic-krt",
+              "KmsMasterKeyId": "arn:aws:kms:us-east-1:775698200277:key/b4e3fefd-162a-4668-889d-6d0b5257965a"
+            }
+          }
+        },
+        "Outputs": {
+          "ServerlessDeploymentBucketName": {
+            "Value": "static-artifact-registry-sls-bucket-775698200277-us-east-1"
+          },
+          "PythonRequirementsLambdaLayerQualifiedArn": {
+            "Description": "Current Lambda layer version",
+            "Value": {
+              "Ref": "PythonRequirementsLambdaLayer"
+            }
+          },
+          "PythonRequirementsLambdaLayerHash": {
+            "Description": "Current Lambda layer hash",
+            "Value": "178bd95aa65a435162f3a6176e65f6b1965d05ac"
+          },
+          "PythonRequirementsLambdaLayerS3Key": {
+            "Description": "Current Lambda layer S3Key",
+            "Value": "serverless/ec-artifact-registry-service/krt/1617979355050-2021-04-09T14:42:35.050Z/pythonRequirements.zip"
+          },
+          "ArtifactS3TriggerLambdaFunctionQualifiedArn": {
+            "Description": "Current Lambda function version",
+            "Value": {
+              "Ref": "ArtifactS3TriggerLambdaVersion7Dsjgzwx5JI1HS8OPUi1Z2wYjyTJLIJdoGDNhCHui2I"
+            }
+          },
+          "ArtifactRegistryApiLambdaFunctionQualifiedArn": {
+            "Description": "Current Lambda function version",
+            "Value": {
+              "Ref": "ArtifactRegistryApiLambdaVersionihsYxQ0sYAF0X1AJtOywvAEKlNomyyg9cQI9dxQAjo"
+            }
+          },
+          "ServiceEndpoint": {
+            "Description": "URL of the service endpoint",
+            "Value": {
+              "Fn::Join": [
+                "",
+                [
+                  "https://",
+                  {
+                    "Ref": "ApiGatewayRestApi"
+                  },
+                  ".execute-api.",
+                  {
+                    "Ref": "AWS::Region"
+                  },
+                  ".",
+                  {
+                    "Ref": "AWS::URLSuffix"
+                  },
+                  "/krt"
+                ]
+              ]
+            }
+          },
+          "ArtifactS3TriggerLambdaFunctionDLQArn": {
+            "Value": {
+              "Fn::GetAtt": [
+                "ArtifactS3TriggerLambdaFunctionDLQ",
+                "Arn"
+              ]
+            }
+          },
+          "ArtifactS3TriggerLambdaFunctionDLQName": {
+            "Value": {
+              "Fn::GetAtt": [
+                "ArtifactS3TriggerLambdaFunctionDLQ",
+                "QueueName"
+              ]
+            }
+          },
+          "ArtifactS3TriggerLambdaFunctionDeadLetterErrorsAlarmTopicArn": {
+            "Value": {
+              "Ref": "ArtifactS3TriggerLambdaFunctionDeadLetterErrorsAlarmTopic"
+            }
+          },
+          "ArtifactS3TriggerLambdaFunctionDeadLetterErrorsAlarmArn": {
+            "Value": {
+              "Fn::GetAtt": [
+                "ArtifactS3TriggerLambdaFunctionDeadLetterErrorsAlarm",
+                "Arn"
+              ]
+            }
+          },
+          "ArtifactS3TriggerLambdaFunctionDeadLetterMessagesAlarmTopicArn": {
+            "Value": {
+              "Ref": "ArtifactS3TriggerLambdaFunctionDeadLetterMessagesAlarmTopic"
+            }
+          },
+          "ArtifactS3TriggerLambdaFunctionDeadLetterMessagesAlarmArn": {
+            "Value": {
+              "Fn::GetAtt": [
+                "ArtifactS3TriggerLambdaFunctionDeadLetterMessagesAlarm",
+                "Arn"
+              ]
+            }
+          },
+          "ArtifactS3TriggerLambdaFunctionExcessiveMemoryUsageAlarmTopicArn": {
+            "Value": {
+              "Ref": "ArtifactS3TriggerLambdaFunctionExcessiveMemoryUsageAlarmTopic"
+            }
+          },
+          "ArtifactS3TriggerLambdaFunctionExcessiveMemoryUsageAlarmArn": {
+            "Value": {
+              "Fn::GetAtt": [
+                "ArtifactS3TriggerLambdaFunctionExcessiveMemoryUsageAlarm",
+                "Arn"
+              ]
+            }
+          },
+          "ArtifactS3TriggerLambdaFunctionExecutionTimeAlarmTopicArn": {
+            "Value": {
+              "Ref": "ArtifactS3TriggerLambdaFunctionExecutionTimeAlarmTopic"
+            }
+          },
+          "ArtifactS3TriggerLambdaFunctionExecutionTimeAlarmArn": {
+            "Value": {
+              "Fn::GetAtt": [
+                "ArtifactS3TriggerLambdaFunctionExecutionTimeAlarm",
+                "Arn"
+              ]
+            }
+          },
+          "ArtifactS3TriggerLambdaFunctionThrottleErrorsAlarmTopicArn": {
+            "Value": {
+              "Ref": "ArtifactS3TriggerLambdaFunctionThrottleErrorsAlarmTopic"
+            }
+          },
+          "ArtifactS3TriggerLambdaFunctionThrottleErrorsAlarmArn": {
+            "Value": {
+              "Fn::GetAtt": [
+                "ArtifactS3TriggerLambdaFunctionThrottleErrorsAlarm",
+                "Arn"
+              ]
+            }
+          },
+          "ArtifactRegistryApiLambdaFunctionDLQArn": {
+            "Value": {
+              "Fn::GetAtt": [
+                "ArtifactRegistryApiLambdaFunctionDLQ",
+                "Arn"
+              ]
+            }
+          },
+          "ArtifactRegistryApiLambdaFunctionDLQName": {
+            "Value": {
+              "Fn::GetAtt": [
+                "ArtifactRegistryApiLambdaFunctionDLQ",
+                "QueueName"
+              ]
+            }
+          },
+          "ArtifactRegistryApiLambdaFunctionDeadLetterErrorsAlarmTopicArn": {
+            "Value": {
+              "Ref": "ArtifactRegistryApiLambdaFunctionDeadLetterErrorsAlarmTopic"
+            }
+          },
+          "ArtifactRegistryApiLambdaFunctionDeadLetterErrorsAlarmArn": {
+            "Value": {
+              "Fn::GetAtt": [
+                "ArtifactRegistryApiLambdaFunctionDeadLetterErrorsAlarm",
+                "Arn"
+              ]
+            }
+          },
+          "ArtifactRegistryApiLambdaFunctionDeadLetterMessagesAlarmTopicArn": {
+            "Value": {
+              "Ref": "ArtifactRegistryApiLambdaFunctionDeadLetterMessagesAlarmTopic"
+            }
+          },
+          "ArtifactRegistryApiLambdaFunctionDeadLetterMessagesAlarmArn": {
+            "Value": {
+              "Fn::GetAtt": [
+                "ArtifactRegistryApiLambdaFunctionDeadLetterMessagesAlarm",
+                "Arn"
+              ]
+            }
+          },
+          "ArtifactRegistryApiLambdaFunctionExcessiveMemoryUsageAlarmTopicArn": {
+            "Value": {
+              "Ref": "ArtifactRegistryApiLambdaFunctionExcessiveMemoryUsageAlarmTopic"
+            }
+          },
+          "ArtifactRegistryApiLambdaFunctionExcessiveMemoryUsageAlarmArn": {
+            "Value": {
+              "Fn::GetAtt": [
+                "ArtifactRegistryApiLambdaFunctionExcessiveMemoryUsageAlarm",
+                "Arn"
+              ]
+            }
+          },
+          "ArtifactRegistryApiLambdaFunctionExecutionTimeAlarmTopicArn": {
+            "Value": {
+              "Ref": "ArtifactRegistryApiLambdaFunctionExecutionTimeAlarmTopic"
+            }
+          },
+          "ArtifactRegistryApiLambdaFunctionExecutionTimeAlarmArn": {
+            "Value": {
+              "Fn::GetAtt": [
+                "ArtifactRegistryApiLambdaFunctionExecutionTimeAlarm",
+                "Arn"
+              ]
+            }
+          },
+          "ArtifactRegistryApiLambdaFunctionThrottleErrorsAlarmTopicArn": {
+            "Value": {
+              "Ref": "ArtifactRegistryApiLambdaFunctionThrottleErrorsAlarmTopic"
+            }
+          },
+          "ArtifactRegistryApiLambdaFunctionThrottleErrorsAlarmArn": {
+            "Value": {
+              "Fn::GetAtt": [
+                "ArtifactRegistryApiLambdaFunctionThrottleErrorsAlarm",
+                "Arn"
+              ]
+            }
+          }
+        }
+      },
+      "vpc": {}
+    },
+    "custom": {
+      "pythonRequirements": {
+        "layer": true
+      },
+      "lambdaDefaults": {
+        "kms": {
+          "kmsKeyArn": "arn:aws:kms:us-east-1:775698200277:key/b4e3fefd-162a-4668-889d-6d0b5257965a"
+        }
+      },
+      "ssmPublish": {
+        "enabled": true,
+        "params": [
+          {
+            "path": "/swacorp/ec/artifact_registry/krt/ec-artifact-registry-service/api_gateway",
+            "value": "ec-artifact-registry-service-api-krt",
+            "secure": false
+          }
+        ]
+      },
+      "kmsKeyArn": "arn:aws:kms:us-east-1:775698200277:key/b4e3fefd-162a-4668-889d-6d0b5257965a",
+      "variables": {
+        "ssm_namespace": "/swacorp/ec/artifact_registry",
+        "backend": {
+          "bucket": {
+            "us-east-1": {
+              "775698200277": "static-ec-artifact-registry-tf-state-775698200277-us-east-1",
+              "997873956369": "static-ec-artifact-registry-tf-state-997873956369-us-east-1",
+              "727406357928": "static-ec-artifact-registry-tf-state-727406357928-us-east-1"
+            },
+            "us-west-2": {
+              "775698200277": "static-ec-artifact-registry-tf-state-775698200277-us-west-2",
+              "997873956369": "static-ec-artifact-registry-tf-state-997873956369-us-west-2",
+              "727406357928": "static-ec-artifact-registry-tf-state-727406357928-us-west-2"
+            }
+          }
+        },
+        "regions": {
+          "us-east-1": "true",
+          "us-west-2": "false"
+        },
+        "swa_environment": {
+          "775698200277": "dev",
+          "997873956369": "qa",
+          "727406357928": "prod"
+        },
+        "route53_hosted_zone_name": {
+          "775698200277": "registry.ec.dev.aws.swacorp.com",
+          "997873956369": "registry.ec.qa.aws.swacorp.com",
+          "727406357928": "registry.ec.prod.aws.swacorp.com"
+        },
+        "cert_authority_arn": {
+          "775698200277": {
+            "us-east-1": "arn:aws:acm-pca:us-east-1:411421005959:certificate-authority/64eceb3b-7886-4f51-a55a-f106951c5c2e",
+            "us-west-2": "arn:aws:acm-pca:us-west-2:411421005959:certificate-authority/a9726c8e-e6f4-42d9-a6ea-df60a49e6bbd"
+          },
+          "997873956369": {
+            "us-east-1": "arn:aws:acm-pca:us-east-1:435503234862:certificate-authority/1defaf95-a678-4845-959b-8819c1228bd9",
+            "us-west-2": "arn:aws:acm-pca:us-west-2:435503234862:certificate-authority/2a0439ce-60b6-433e-881f-9621e6f84839"
+          },
+          "727406357928": {
+            "us-east-1": "arn:aws:acm-pca:us-east-1:602788979237:certificate-authority/17371797-d037-4d85-9aa4-51a0f33a1f43",
+            "us-west-2": "arn:aws:acm-pca:us-west-2:602788979237:certificate-authority/7527a86e-bdea-47af-9983-a6e1b1709539"
+          }
+        },
+        "cert_role": {
+          "775698200277": "arn:aws:iam::411421005959:role/SWACSManageCertRole",
+          "997873956369": "arn:aws:iam::435503234862:role/SWACSManageCertRole",
+          "727406357928": "arn:aws:iam::602788979237:role/SWACSManageCertRole"
+        },
+        "loglevel": {
+          "dev": "DEBUG",
+          "qa": "DEBUG",
+          "prod": "DEBUG"
+        },
+        "event_sources": {
+          "dde_status": "swa.ec.landing-zone.status",
+          "status": "swa.ec.artifact-registry.status"
+        }
+      },
+      "ssmNamespace": "/swacorp/ec/artifact_registry/krt",
+      "apiGatewayName": "ec-artifact-registry-service-api-krt",
+      "registryTableName": "artifact-registry-table",
+      "registryTableArn": "arn:aws:dynamodb:us-east-1:775698200277:table/artifact-registry-table",
+      "registryBucketName": "artifact-registry-krt-775698200277-us-east-1",
+      "registryBucketArn": "arn:aws:s3:::artifact-registry-krt-775698200277-us-east-1",
+      "eventSource": "{\"dde_status\":\"swa.ec.landing-zone.status\",\"status\":\"swa.ec.artifact-registry.status\"}",
+      "loglevel": "DEBUG"
+    },
+    "plugins": [
+      "serverless-python-requirements",
+      "serverless-lambda-defaults-plugin",
+      "serverless-ssm-publish",
+      "serverless-iam-roles-per-function"
+    ],
+    "pluginsData": {},
+    "functions": {
+      "artifactS3Trigger": {
+        "iamRoleStatementsName": "ArtifactRegistryS3TriggerRole-krt",
+        "iamRoleStatementsInherit": true,
+        "tracing": "Active",
+        "name": "artifact-registry-s3-trigger-krt",
+        "handler": "src/s3_trigger/entrypoint.lambda_handler",
+        "layers": {
+          "$ref": "$[\"service\"][\"provider\"][\"compiledCloudFormationTemplate\"][\"Resources\"][\"ArtifactS3TriggerLambdaFunction\"][\"Properties\"][\"Layers\"]"
+        },
+        "events": [
+          {
+            "s3": {
+              "bucket": "artifact-registry-krt-775698200277-us-east-1",
+              "event": "s3:ObjectCreated:*",
+              "existing": true
+            }
+          }
+        ],
+        "package": {},
+        "memory": 1024,
+        "timeout": 6,
+        "runtime": "python3.8",
+        "vpc": {},
+        "versionLogicalId": "ArtifactS3TriggerLambdaVersion7Dsjgzwx5JI1HS8OPUi1Z2wYjyTJLIJdoGDNhCHui2I"
+      },
+      "artifactRegistryApi": {
+        "iamRoleStatementsInherit": true,
+        "iamRoleStatementsName": "ArtifactRegistryS3ApiRole-krt",
+        "iamRoleStatements": [
+          {
+            "$ref": "$[\"service\"][\"provider\"][\"compiledCloudFormationTemplate\"][\"Resources\"][\"ArtifactRegistryApiIamRoleLambdaExecution\"][\"Properties\"][\"Policies\"][0][\"PolicyDocument\"][\"Statement\"][2]"
+          }
+        ],
+        "tracing": "Active",
+        "name": "artifact-registry-api-krt",
+        "handler": "src/api/entrypoint.lambda_handler",
+        "layers": {
+          "$ref": "$[\"service\"][\"provider\"][\"compiledCloudFormationTemplate\"][\"Resources\"][\"ArtifactRegistryApiLambdaFunction\"][\"Properties\"][\"Layers\"]"
+        },
+        "events": [
+          {
+            "http": {
+              "path": "{artifact_key}",
+              "method": "get",
+              "authorizer": {
+                "type": "AWS_IAM",
+                "managedExternally": false,
+                "resultTtlInSeconds": 300,
+                "identitySource": "method.request.header.Authorization",
+                "claims": []
+              },
+              "request": {
+                "parameters": {
+                  "method.request.querystring.version": false,
+                  "method.request.path.key": true
+                }
+              },
+              "integration": "AWS_PROXY"
+            }
+          },
+          {
+            "http": {
+              "path": "",
+              "method": "get",
+              "authorizer": {
+                "type": "AWS_IAM",
+                "managedExternally": false,
+                "resultTtlInSeconds": 300,
+                "identitySource": "method.request.header.Authorization",
+                "claims": []
+              },
+              "integration": "AWS_PROXY"
+            }
+          },
+          {
+            "http": {
+              "path": "upload/status/{etag}",
+              "method": "get",
+              "authorizer": {
+                "type": "AWS_IAM",
+                "managedExternally": false,
+                "resultTtlInSeconds": 300,
+                "identitySource": "method.request.header.Authorization",
+                "claims": []
+              },
+              "request": {
+                "parameters": {
+                  "method.request.path.etag": true
+                }
+              },
+              "integration": "AWS_PROXY"
+            }
+          },
+          {
+            "http": {
+              "path": "upload",
+              "method": "get",
+              "authorizer": {
+                "type": "AWS_IAM",
+                "managedExternally": false,
+                "resultTtlInSeconds": 300,
+                "identitySource": "method.request.header.Authorization",
+                "claims": []
+              },
+              "request": {
+                "parameters": {
+                  "method.request.querystring.s3_key": true
+                }
+              },
+              "integration": "AWS_PROXY"
+            }
+          }
+        ],
+        "package": {},
+        "memory": 1024,
+        "timeout": 6,
+        "runtime": "python3.8",
+        "vpc": {},
+        "versionLogicalId": "ArtifactRegistryApiLambdaVersionihsYxQ0sYAF0X1AJtOywvAEKlNomyyg9cQI9dxQAjo"
+      }
+    },
+    "configValidationMode": "warn",
+    "serviceFilename": "serverless.ts",
+    "unresolvedVariablesNotificationMode": "error",
+    "layers": {
+      "pythonRequirements": {
+        "artifact": ".serverless/pythonRequirements.zip",
+        "name": "ec-artifact-registry-service-krt-python-requirements",
+        "description": "Python requirements generated by serverless-python-requirements.",
+        "compatibleRuntimes": {
+          "$ref": "$[\"service\"][\"provider\"][\"compiledCloudFormationTemplate\"][\"Resources\"][\"PythonRequirementsLambdaLayer\"][\"Properties\"][\"CompatibleRuntimes\"]"
+        },
+        "package": {}
+      }
+    },
+    "initialServerlessConfig": {
+      "service": {
+        "$ref": "$[\"service\"][\"serviceObject\"]"
+      },
+      "unresolvedVariablesNotificationMode": "error",
+      "provider": {
+        "$ref": "$[\"service\"][\"provider\"]"
+      },
+      "custom": {
+        "$ref": "$[\"service\"][\"custom\"]"
+      },
+      "plugins": {
+        "$ref": "$[\"service\"][\"plugins\"]"
+      },
+      "package": {
+        "exclude": [
+          "**/*"
+        ],
+        "include": [
+          "!.**",
+          "src/**/*.py"
+        ],
+        "deploymentBucket": "static-artifact-registry-sls-bucket-775698200277-us-east-1",
+        "artifact": "/Users/ktaborn/Development/swa/enterprise-cloud/ec-artifact-registry/artifacts_service/.serverless/ec-artifact-registry-service.zip",
+        "artifactDirectoryName": "serverless/ec-artifact-registry-service/krt/1617979355050-2021-04-09T14:42:35.050Z"
+      },
+      "functions": {
+        "$ref": "$[\"service\"][\"functions\"]"
+      }
+    },
+    "isDashboardMonitoringPreconfigured": false,
+    "artifact": "/Users/ktaborn/Development/swa/enterprise-cloud/ec-artifact-registry/artifacts_service/.serverless/ec-artifact-registry-service.zip"
+  },
+  "package": {
+    "artifactDirectoryName": "serverless/ec-artifact-registry-service/krt/1617979355050-2021-04-09T14:42:35.050Z",
+    "artifact": "ec-artifact-registry-service.zip"
+  }
+}

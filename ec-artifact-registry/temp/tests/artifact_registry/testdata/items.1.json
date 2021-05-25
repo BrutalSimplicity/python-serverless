@@ -1,0 +1,12 @@
+[
+    {
+        "Arn": "arn:aws:ec-artifact-registry:us-east-1:775698200277:artifact/Landing-Zone-Test/dev",
+        "ArtifactKey": "/e2e-test/LandingZoneTest.zip",
+        "AwsRegion": "us-east-1",
+        "DeploymentSelector": "dev",
+        "ManifestTemplate": "{'Template': {'Name': 'LandingZoneTest.yml'}, 'CloudFormation': {'RequestKWArgs': {'StackName': 'landing-zone-e2e-test', 'Capabilities': ['CAPABILITY_IAM']}}, 'Targets': {'AccountIds': [775698200277]}, 'Regions': ['us-east-1']}",
+        "OwnerAccountId": "775698200277",
+        "StackName": "Landing-Zone-Test",
+        "VersionId": "hHXPeSWxzFjTyz1MyvnwMdXTm3FWm7u9"
+    }
+]

@@ -1,0 +1,849 @@
+/* groovylint-disable CompileStatic, DuplicateStringLiteral, DuplicateMapLiteral, DuplicateNumberLiteral, NestedBlockDepth, LineLength, FactoryMethodName, ExplicitCallToEqualsMethod */
+
+import groovy.json.JsonSlurperClassic
+import groovy.json.JsonOutput
+import java.text.SimpleDateFormat
+
+boolean createStandardChange = true
+Object awsCredentials
+String deployEnvironment
+String deploymentChangeNumber
+Object deploymentChangeResponse
+String activationChangeNumber
+String currentStage = 'initial'
+
+pipeline {
+    agent { label 'ec-gitops-agent' }
+    environment {
+        AWS_ACCT_DEV            = '775698200277'
+        AWS_ACCT_PROD           = '727406357928'
+        AWS_ACCT_QA             = '997873956369'
+        AWS_ACCOUNT_ID          = sh (returnStdout: true, script: """
+                                    case "${env.BRANCH_NAME}" in
+                                        dev*)  echo ${AWS_ACCT_DEV};;
+                                        qa*)   echo ${AWS_ACCT_QA};;
+                                        prod*) echo ${AWS_ACCT_PROD};;
+                                        *)     echo ${AWS_ACCT_DEV};;
+                                    esac
+                                    """).trim()
+        SWA_ENVIRONMENT         = sh (returnStdout: true, script: """
+                                    case "${env.AWS_ACCOUNT_ID}" in
+                                        775698200277)       echo "dev";;
+                                        997873956369)       echo "qa";;
+                                        727406357928)       echo "prod";;
+                                    esac
+                                    """).trim()
+        DEPLOY_ROLE             = sh (returnStdout: true, script: """
+                                    case "${env.AWS_ACCOUNT_ID}" in
+                                        775698200277)       echo "dev";;
+                                        997873956369)       echo "qa";;
+                                        727406357928)       echo "prod";;
+                                    esac
+                                    """).trim()
+        GIT_CREDENTIALS = credentials('ec-deploy-user')
+        STD_CHG_API_IMG = "${AWS_ACCOUNT_ID}.dkr.ecr.us-east-1.amazonaws.com/docker-snow-change-client:latest"
+        STD_CHG_API_HOST = "api.standard-change.ec.${env.SWA_ENVIRONMENT}.aws.swacorp.com"
+        STD_CHG_TEMPLATE_NAME = 'Enterprise Cloud CI'
+
+    }
+    stages {
+        stage('setup') {
+            steps {
+                script {
+                    currentStage = 'setup'
+                    checkout([
+                        $class: 'GitSCM',
+                        branches: scm.branches,
+                        doGenerateSubmoduleConfigurations: scm.doGenerateSubmoduleConfigurations,
+                        extensions: [
+                            [
+                                $class: 'CloneOption',
+                                noTags: false,
+                                shallow: false,
+                                depth: 0,
+                                reference: ''
+                            ]
+                        ],
+                        userRemoteConfigs: scm.userRemoteConfigs,
+                    ])
+                    dockerLogin("${env.AWS_ACCOUNT_ID}")
+                    awsCredentials = assume_role(env.AWS_ACCOUNT_ID, env.DEPLOY_ROLE)
+
+                }
+            }
+        }
+
+        stage('release') {
+            agent {
+                dockerfile {
+                    filename 'Dockerfile.semantic.release'
+                    args "-v ${env.WORKSPACE}:/src"
+                    reuseNode true
+                }
+            }
+            steps {
+                script {
+                    currentStage = 'release'
+                    build_status = sh(
+                        script: '''
+                            npx semantic-release \
+                                --ci \
+                                --debug
+                        ''',
+                        returnStatus: true
+                    )
+                    assert build_status == 0
+                    // set the deployEnvironment Global Variable for use in later steps
+                    deployEnvironment = sh(
+                        returnStdout: true,
+                        script: 'git describe --tags --abbrev=0'
+                    ).trim()
+                }
+            }
+        }
+
+        stage('documentation') {
+            // build documentation after release, so it can include the changelog
+            agent {
+                dockerfile {
+                    filename 'Dockerfile.python'
+                    args "-v ${env.WORKSPACE}:/opt/workspace"
+                    reuseNode true
+                }
+            }
+            steps {
+                script {
+                    currentStage = 'documentation'
+                    dir('documentation') {
+                        sh 'make jenkins-build'
+                    }
+                }
+            }
+        }
+
+        stage('pytest') {
+            agent {
+                dockerfile {
+                    filename 'Dockerfile.python'
+                    args "-v ${env.WORKSPACE}:/opt/workspace"
+                    reuseNode true
+                }
+            }
+            environment {
+                ARTIFACT_REGISTRY_S3_BUCKET_NAME = 'test'
+                NEW_ACCOUNT_ARTIFACT_REGISTRY_TABLE_NAME = 'test'
+                AWS_DEFAULT_REGION = 'us-east-1'
+            }
+            steps {
+                script {
+                    currentStage = 'pytest'
+                    def runTests = [:]
+                    python_src_dirs = sh(
+                        returnStdout: true,
+                        script: 'ls -d *_lambda'
+                    ).trim().split(System.getProperty('line.separator'))
+                    python_src_dirs.each { p ->
+                        runTests["${p}"] = {
+                            dir("${p}") {
+                                sh 'make setup-env && make test'
+                            }
+                        }
+                    }
+                    withEnv([
+                        "WORKON_HOME=${WORKSPACE}",
+                        'PIPENV_CACHE_DIR=/tmp',
+                        'PIPENV_NOSPIN=1',
+                        'PIPENV_YES=1',
+                        'PIPENV_SKIP_LOCK=1',
+                        'PIPENV_COLORBLIND=1',
+                        'PIPENV_VENV_IN_PROJECT=1'
+                    ]) {
+                        parallel runTests
+                    }
+                }
+            }
+        }
+
+        stage('build dist packages') {
+            agent {
+                dockerfile {
+                    filename 'Dockerfile.python'
+                    args "-v ${env.WORKSPACE}:/opt/workspace"
+                    reuseNode true
+                }
+            }
+            steps {
+                script {
+                    currentStage = 'build_dist_packages'
+                    sh 'make build'
+                }
+            }
+        }
+
+        // create deployment change
+        stage('SN - create deployment standard change') {
+            when { equals expected: true, actual: createStandardChange }
+            steps {
+                script {
+                    currentStage = 'create_standard_change'
+                    // get the tag so it can be added to the change
+                    Object deploymentRequest = buildDeploymentStandardChangeRequest(deployEnvironment)
+                    Object deploymentResponse = callServiceNow(awsCredentials, deploymentRequest)
+                    statusCode = deploymentResponse['status_code']
+                    assert statusCode == 201
+                    deploymentChangeResponse = deploymentResponse
+                    deploymentChangeNumber = deploymentResponse['result']['number']
+                    println "deploymentChangeNumber: ${deploymentChangeNumber}"
+                }
+            }
+        }
+
+        stage('SN - update change impl tasks') {
+            when { equals expected: true, actual: createStandardChange }
+            steps {
+                script {
+                    currentStage = 'update_change_impl_tasks'
+                    deploymentChangeResponse['result']['tasks'].each { task ->
+                        Object request = buildUpdateChangeTasksRequest(task.sys_id, 'e85262')
+                        Object response = callServiceNow(awsCredentials, request)
+                        statusCode = response['status_code']
+                        assert statusCode == 200
+                    }
+                }
+            }
+        }
+
+        // open deployment task
+        stage('SN - submit change for implementation') {
+            when { equals expected: true, actual: createStandardChange }
+            steps {
+                script {
+                    currentStage = 'submit_change_for_implementation'
+                    Object submitChangeForImplRequest = buildSubmitChangeForImplRequest(deploymentChangeNumber)
+                    List submitChangeForImplResponses = callServiceNow(awsCredentials, submitChangeForImplRequest)
+                    submitChangeForImplResponses.each { response ->
+                        assert response['status_code'] == 200
+                    }
+                }
+            }
+        }
+
+        stage('SN - set implementation task to Work in Progress') {
+            when { equals expected: true, actual: createStandardChange }
+            steps {
+                script {
+                    currentStage = 'set_implementation_task_to_work_in_progress'
+                    Object implTask = deploymentChangeResponse['result']['tasks'].find { task ->
+                        task.u_task_type == 'Implementation'
+                    }
+                    SimpleDateFormat dateFormat = new SimpleDateFormat('MM-dd-yyyy HH:mm:ss')
+                    String actual_start = dateFormat.format(new Date())
+                    Object request = buildSetChangeTasksToWipRequest(implTask.sys_id, actual_start)
+                    Object response = callServiceNow(awsCredentials, request)
+                    assert response['status_code'] == 200
+                }
+            }
+        }
+
+        // The change request state should be Implementation, and the Implementation task should be Work in Progress
+
+        stage('deploy') {
+            agent {
+                dockerfile {
+                    filename 'Dockerfile.python'
+                    args "-v ${env.WORKSPACE}:/opt/workspace"
+                    reuseNode true
+                }
+            }
+            steps {
+                script {
+                    currentStage = 'deploy'
+                    dir('runway') {
+                        withEnv([
+                            'PIPENV_CACHE_DIR=/tmp',
+                            'PIPENV_NOSPIN=1',
+                            'PIPENV_YES=1',
+                            'PIPENV_SKIP_LOCK=1',
+                            'PIPENV_COLORBLIND=1',
+                            'PIPENV_VENV_IN_PROJECT=1',
+                            'AWS_REGION=us-east-1',
+                            "AWS_ACCESS_KEY_ID=${awsCredentials.AccessKeyId}",
+                            "AWS_SECRET_ACCESS_KEY=${awsCredentials.SecretAccessKey}",
+                            "AWS_SESSION_TOKEN=${awsCredentials.SessionToken}",
+                            "DEPLOY_ENVIRONMENT=${deployEnvironment}",
+                            'CI=1'
+                        ]) {
+                            println ">>>> DEPLOY_ENVIRONMENT: ${env.DEPLOY_ENVIRONMENT}"
+                            status = sh(
+                                script: 'runway test && runway deploy',
+                                returnStatus: true
+                            )
+                            assert status == 0
+                        }
+                    }
+                }
+            }
+        }
+
+        // close deployment task
+        stage('SN - set implementation task to Closed Complete') {
+            when { equals expected: true, actual: createStandardChange }
+            steps {
+                script {
+                    currentStage = 'set_implementation_task_to_closed_complete'
+                    Object task = deploymentChangeResponse['result']['tasks'].find { task ->
+                        task.u_task_type == 'Implementation'
+                    }
+                    SimpleDateFormat dateFormat = new SimpleDateFormat('MM-dd-yyyy HH:mm:ss')
+                    String actual_end = dateFormat.format(new Date())
+                    Object request = buildSetChangeTasksToClosedCompleteRequest(task.sys_id, actual_end)
+                    Object response = callServiceNow(awsCredentials, request)
+                    assert response['status_code'] == 200
+                }
+            }
+        }
+
+        // set validation task to Work in Progress
+        stage('SN - set validation task to Work in Progress') {
+            when { equals expected: true, actual: createStandardChange }
+            steps {
+                script {
+                    currentStage = 'set_validation_task_to_work_in_progress'
+                    Object task = deploymentChangeResponse['result']['tasks'].find { task ->
+                        task.u_task_type == 'Validation'
+                    }
+                    SimpleDateFormat dateFormat = new SimpleDateFormat('MM-dd-yyyy HH:mm:ss')
+                    String actual_start = dateFormat.format(new Date())
+                    Object request = buildSetChangeTasksToWipRequest(task.sys_id, actual_start)
+                    Object response = callServiceNow(awsCredentials, request)
+                    assert response['status_code'] == 200
+                }
+            }
+        }
+
+        stage('validate') {
+            agent {
+                dockerfile {
+                    filename 'Dockerfile.python'
+                    args "-v ${env.WORKSPACE}:/opt/workspace"
+                    reuseNode true
+                }
+            }
+            steps {
+                script {
+                    currentStage = 'validate'
+                    dir('e2e-tests') {
+                        withEnv([
+                            'AWS_REGION=us-east-1',
+                            "AWS_ACCESS_KEY_ID=${awsCredentials.AccessKeyId}",
+                            "AWS_SECRET_ACCESS_KEY=${awsCredentials.SecretAccessKey}",
+                            "AWS_SESSION_TOKEN=${awsCredentials.SessionToken}",
+                            "DEPLOY_ENVIRONMENT=${deployEnvironment}",
+                            "SWA_ENVIRONMENT=${env.SWA_ENVIRONMENT}"
+                        ]) {
+                            status = sh(script: 'make setup-env test-lambda test-api-gateway', returnStatus: true)
+                            assert status == 0
+                        }
+                    }
+                }
+            }
+        }
+
+        // close deployment validation task
+        stage('SN - set validation task to Closed Complete') {
+            when { equals expected: true, actual: createStandardChange }
+            steps {
+                script {
+                    currentStage = 'set_validation_task_to_closed_complete'
+                    Object implTask = deploymentChangeResponse['result']['tasks'].find { task ->
+                        task.u_task_type == 'Validation'
+                    }
+                    SimpleDateFormat dateFormat = new SimpleDateFormat('MM-dd-yyyy HH:mm:ss')
+                    String actual_end = dateFormat.format(new Date())
+                    Object request = buildSetChangeTasksToClosedCompleteRequest(implTask.sys_id, actual_end)
+                    Object response = callServiceNow(awsCredentials, request)
+                    assert response['status_code'] == 200
+                }
+            }
+        }
+
+        // close deployment change
+        stage('SN - end implementation') {
+            when { equals expected: true, actual: createStandardChange }
+            steps {
+                script {
+                    currentStage = 'end_implementation'
+                    Object request = buildEndImplRequest(deploymentChangeNumber, 'Fully Implemented', 'Yes')
+                    Object response = callServiceNow(awsCredentials, request)
+                    assert response['status_code'] == 200
+                }
+            }
+        }
+
+        // create activation change
+        stage('SN - create activation standard change') {
+            when { equals expected: true, actual: createStandardChange }
+            steps {
+                script {
+                    currentStage = 'create_activation_standard_change'
+                    Object request = buildActivationStandardChangeRequest(deployEnvironment)
+                    Object response = callServiceNow(awsCredentials, request)
+                    statusCode = response['status_code']
+                    assert statusCode == 201
+                    activationChangeResponse = response
+                    activationChangeNumber = response['result']['number']
+                    println "activationChangeNumber: ${activationChangeNumber}"
+                }
+            }
+        }
+
+        stage('SN - transition activation change to impl') {
+            when { equals expected: true, actual: createStandardChange }
+            steps {
+                script {
+                    currentStage = 'transition_activation_change_to_impl'
+                    activationChangeResponse['result']['tasks'].each { task ->
+                        Object request = buildUpdateChangeTasksRequest(task.sys_id, 'e85262')
+                        Object response = callServiceNow(awsCredentials, request)
+                        statusCode = response['status_code']
+                        assert statusCode == 200
+                    }
+                }
+            }
+        }
+
+        stage('SN - submit activation change for implementation') {
+            when { equals expected: true, actual: createStandardChange }
+            steps {
+                script {
+                    currentStage = 'submit_activation_change_for_implementation'
+                    Object submitChangeForImplRequest = buildSubmitChangeForImplRequest(activationChangeNumber)
+                    List submitChangeForImplResponses = callServiceNow(awsCredentials, submitChangeForImplRequest)
+                    submitChangeForImplResponses.each { response ->
+                        assert response['status_code'] == 200
+                    }
+                }
+            }
+        }
+
+        stage('SN - set activation implementation task to Work in Progress') {
+            when { equals expected: true, actual: createStandardChange }
+            steps {
+                script {
+                    currentStage = 'set_activation_implementation_task_to_work_in_progress'
+                    Object implTask = activationChangeResponse['result']['tasks'].find { task ->
+                        task.u_task_type == 'Implementation'
+                    }
+                    SimpleDateFormat dateFormat = new SimpleDateFormat('MM-dd-yyyy HH:mm:ss')
+                    String actual_start = dateFormat.format(new Date())
+                    Object request = buildSetChangeTasksToWipRequest(implTask.sys_id, actual_start)
+                    Object response = callServiceNow(awsCredentials, request)
+                    assert response['status_code'] == 200
+                }
+            }
+        }
+
+        stage('activate') {
+            steps {
+                script {
+                    currentStage = 'activate'
+                    build(
+                        job: '/ec-artifact-registry-activator',
+                        parameters: [
+                            [
+                                $class: 'StringParameterValue',
+                                name: 'DEPLOY_ENVIRONMENT',
+                                value: deployEnvironment
+                            ],
+                            [
+                                $class: 'StringParameterValue',
+                                name: 'GIT_BRANCH',
+                                value: "${env.BRANCH_NAME}"
+                            ]
+                        ]
+                    )
+                }
+            }
+        }
+
+        // close activation task
+        stage('SN - set activation implementation task to Closed Complete') {
+            when { equals expected: true, actual: createStandardChange }
+            steps {
+                script {
+                    currentStage = 'set_activation_implementation_task_to_closed_complete'
+                    Object task = activationChangeResponse['result']['tasks'].find { task ->
+                        task.u_task_type == 'Implementation'
+                    }
+                    SimpleDateFormat dateFormat = new SimpleDateFormat('MM-dd-yyyy HH:mm:ss')
+                    String actual_end = dateFormat.format(new Date())
+                    Object request = buildSetChangeTasksToClosedCompleteRequest(task.sys_id, actual_end)
+                    Object response = callServiceNow(awsCredentials, request)
+                    assert response['status_code'] == 200
+                }
+            }
+        }
+
+        // close activation change
+        stage('SN - end activation implementation') {
+            when { equals expected: true, actual: createStandardChange }
+            steps {
+                script {
+                    currentStage = 'end_activation_implementation'
+                    Object request = buildEndImplRequest(activationChangeNumber, 'Fully Implemented', 'Yes')
+                    Object response = callServiceNow(awsCredentials, request)
+                    assert response['status_code'] == 200
+                }
+            }
+        }
+
+    }
+
+    post {
+        failure {
+            print "Build failed in stage ${currentStage}"
+            script {
+                List serviceNowSteps = [
+                    'update_change_impl_tasks',
+                    'submit_change_for_implementation',
+                    'set_implementation_task_to_work_in_progress',
+                    'set_implementation_task_to_closed_complete',
+                    'set_validation_task_to_work_in_progress',
+                    'set_validation_task_to_closed_complete',
+                    'end_implementation',
+                    'create_activation_standard_change',
+                    'transition_activation_change_to_impl',
+                    'submit_activation_change_for_implementation',
+                    'set_activation_implementation_task_to_work_in_progress',
+                    'set_activation_implementation_task_to_closed_complete',
+                    'end_activation_implementation'
+                ]
+
+                SimpleDateFormat dateFormat = new SimpleDateFormat('MM-dd-yyyy HH:mm:ss')
+                String actual_end = dateFormat.format(new Date())
+                if (currentStage == 'deploy') {
+                    Object task = deploymentChangeResponse['result']['tasks'].find { task ->
+                        task.u_task_type == 'Implementation'
+                    }
+                    String err = "Build failed in the deploy stage.\nBuild: ${env.BUILD_NUMBER}; Build Tag: ${env.BUILD_TAG}; Results: ${env.BUILD_URL}"
+                    Object request = buildSetChangeTasksToCancelledRequest(task.sys_id, actual_end, err)
+                    Object response = callServiceNow(awsCredentials, request)
+                    // set change to failed
+                    request = buildEndImplRequest(deploymentChangeNumber, 'Not Implemented', 'No')
+                    response = callServiceNow(awsCredentials, request)
+                    assert response['status_code'] == 200
+                } else if (currentStage == 'validate') {
+                    // set validation task to failed
+                    Object task = deploymentChangeResponse['result']['tasks'].find { task ->
+                        task.u_task_type == 'Validation'
+                    }
+                    String err = "Build failed in the validate stage.\nBuild: ${env.BUILD_NUMBER}; Build Tag: ${env.BUILD_TAG}; Results: ${env.BUILD_URL}"
+                    Object request = buildSetChangeTasksToCancelledRequest(task.sys_id, actual_end, err)
+                    Object response = callServiceNow(awsCredentials, request)
+                    // set change to failed
+                    request = buildEndImplRequest(deploymentChangeNumber, 'Not Implemented', 'No')
+                    response = callServiceNow(awsCredentials, request)
+                    assert response['status_code'] == 200
+                } else if (currentStage == 'activate') {
+                    // set validation task to failed
+                    Object task = activationChangeResponse['result']['tasks'].find { task ->
+                        task.u_task_type == 'Validation'
+                    }
+                    String err = "Build failed in the validate stage.\nBuild: ${env.BUILD_NUMBER}; Build Tag: ${env.BUILD_TAG}; Results: ${env.BUILD_URL}"
+                    Object request = buildSetChangeTasksToCancelledRequest(task.sys_id, actual_end, err)
+                    Object response = callServiceNow(awsCredentials, request)
+                    // set change to failed
+                    request = buildEndImplRequest(activationChangeNumber, 'Not Implemented', 'No')
+                    response = callServiceNow(awsCredentials, request)
+                    assert response['status_code'] == 200
+                } else if (serviceNowSteps.contains(currentStage)) {
+                    // cancel change
+                    cancelChange(awsCredentials, deploymentChangeNumber, "Build failed at stage ${currentStage}.")
+                }
+            }
+        }
+    }
+
+}
+
+Object assume_role(String awsAccountId, String awsRoleEnv) {
+    rawStsResponse = sh(
+        returnStdout: true,
+        script: """
+            set +x && \
+            aws sts assume-role \
+                --role-arn arn:aws:iam::$awsAccountId:role/swa/SWAECJenkinsDeployRole-$awsRoleEnv \
+                --role-session-name $awsAccountId-assume-role | jq -c .
+        """
+    )
+    stsResponse = new JsonSlurperClassic().parseText(rawStsResponse)
+    return stsResponse.Credentials
+}
+
+boolean dockerLogin(String registryId) {
+    ecr_login = sh (returnStatus: true, script: """
+        eval \$(aws ecr get-login --region us-east-1 --no-include-email --registry-ids ${registryId})
+    """)
+    return ecr_login == 0
+}
+
+Object buildDeploymentStandardChangeRequest(String deployEnvironment) {
+    SimpleDateFormat dateFormat = new SimpleDateFormat('MM-dd-yyyy HH:mm:ss')
+    Date now = new Date()
+    String start_date = dateFormat.format(now)
+
+    Date end = new Date(now.getTime() + (60 * 60000))
+    String end_date = dateFormat.format(end)
+
+    request = JsonOutput.toJson([
+        'config': [
+            'aws_service': 'execute-api',
+            'verify': 'false'
+        ],
+        'commands': [
+            [
+                'method': 'POST',
+                'url': "https://${env.STD_CHG_API_HOST}/api/soai/v1/standard_change/create/${env.STD_CHG_TEMPLATE_NAME}",
+                'data': [
+                    'template': "${env.STD_CHG_TEMPLATE_NAME}",
+                    'u_release_not_applicable': 'True',
+                    'u_environment': "${env.SWA_ENVIRONMENT}",
+                    'assigned_to': 'e85262',
+                    'u_business_service': 'Operate and maintain technologies',
+                    'short_description': "Deploying EC Account Artifact Registry version ${deployEnvironment} to ${env.SWA_ENVIRONMENT}",
+                    'description': 'Enterprise Cloud Account Artifact Registry',
+                    'change_plan': "1. Deploy a new immutable version of the Account Artifact Registry to AWS Account ${env.AWS_ACCOUNT_ID}\nBuild: ${env.BUILD_NUMBER}\nBuild Tag: ${env.BUILD_TAG}\nResults: ${env.BUILD_URL}",
+                    'test_plan': '1. Execute automated tests against deployed version',
+                    'backout_plan': '1. Destroy the version before it is ever activated',
+                    'u_source_of_change': 'Service Request',
+                    'u_reason_for_change': 'Updating Service',
+                    'start_date': start_date,
+                    'end_date': end_date,
+                    'u_release': 'latest'
+                ]
+            ]
+        ]
+    ])
+    println "buildDeploymentStandardChangeRequest: ${request}"
+    return request
+}
+
+Object buildActivationStandardChangeRequest(String deployEnvironment) {
+    SimpleDateFormat dateFormat = new SimpleDateFormat('MM-dd-yyyy HH:mm:ss')
+    Date now = new Date()
+    String start_date = dateFormat.format(now)
+
+    Date end = new Date(now.getTime() + (60 * 60000))
+    String end_date = dateFormat.format(end)
+
+    request = JsonOutput.toJson([
+        'config': [
+            'aws_service': 'execute-api',
+            'verify': 'false'
+        ],
+        'commands': [
+            [
+                'method': 'POST',
+                'url': "https://${env.STD_CHG_API_HOST}/api/soai/v1/standard_change/create/${env.STD_CHG_TEMPLATE_NAME}",
+                'data': [
+                    'template': "${env.STD_CHG_TEMPLATE_NAME}",
+                    'u_release_not_applicable': 'True',
+                    'u_environment': "${env.SWA_ENVIRONMENT}",
+                    'assigned_to': 'e85262',
+                    'u_business_service': 'Operate and maintain technologies',
+                    'short_description': "Activating EC Account Artifact Registry version ${deployEnvironment} to ${env.SWA_ENVIRONMENT}",
+                    'description': 'Enterprise Cloud Account Artifact Registry',
+                    'change_plan': "1. Activate EC Account Artifact Registry version ${deployEnvironment}",
+                    'test_plan': '1. Execute automated tests against activated version',
+                    'backout_plan': '1. Reactivate the previous version',
+                    'u_source_of_change': 'Service Request',
+                    'u_reason_for_change': 'Updating Service',
+                    'start_date': start_date,
+                    'end_date': end_date,
+                    'u_release': 'latest'
+                ]
+            ]
+        ]
+    ])
+    println "buildDeploymentStandardChangeRequest: ${request}"
+    return request
+}
+
+Object buildUpdateChangeTasksRequest(String sys_id, String assigned_to) {
+    request = JsonOutput.toJson([
+        'config': [
+            'aws_service': 'execute-api',
+            'verify': 'false'
+        ],
+        'commands': [
+            [
+                'method': 'POST',
+                'url': "https://${env.STD_CHG_API_HOST}/api/soai/v1/standard_change/update_task/${sys_id}",
+                'data': [
+                    'assigned_to': assigned_to
+                ]
+            ]
+        ]
+    ])
+    return request
+}
+
+Object buildSetChangeTasksToWipRequest(String sys_id, String actualStart) {
+    // WIP State is 2
+    request = JsonOutput.toJson([
+        'config': [
+            'aws_service': 'execute-api',
+            'verify': 'false'
+        ],
+        'commands': [
+            [
+                'method': 'POST',
+                'url': "https://${env.STD_CHG_API_HOST}/api/soai/v1/standard_change/update_task/${sys_id}",
+                'data': [
+                    'state': 'Work in Progress',
+                    'u_actual_start': actualStart
+                ]
+            ]
+        ]
+    ])
+    return request
+}
+
+Object buildSetChangeTasksToClosedCompleteRequest(String sys_id, String actualEnd) {
+    // WIP State is 2
+    request = JsonOutput.toJson([
+        'config': [
+            'aws_service': 'execute-api',
+            'verify': 'false'
+        ],
+        'commands': [
+            [
+                'method': 'POST',
+                'url': "https://${env.STD_CHG_API_HOST}/api/soai/v1/standard_change/update_task/${sys_id}",
+                'data': [
+                    'state': 'Closed Complete',
+                    'u_implementation_code': 'Closed Complete',
+                    'u_actual_end': actualEnd
+                ]
+            ]
+        ]
+    ])
+    return request
+}
+
+Object buildSetChangeTasksToCancelledRequest(String sys_id, String actualEnd, String cancelMessage) {
+    // WIP State is 2
+    request = JsonOutput.toJson([
+        'config': [
+            'aws_service': 'execute-api',
+            'verify': 'false'
+        ],
+        'commands': [
+            [
+                'method': 'POST',
+                'url': "https://${env.STD_CHG_API_HOST}/api/soai/v1/standard_change/update_task/${sys_id}",
+                'data': [
+                    'state': 'Closed Complete',
+                    'u_implementation_code': 'Not Implemented',
+                    'u_actual_end': actualEnd,
+                    'work_notes': cancelMessage
+                ]
+            ]
+        ]
+    ])
+    return request
+}
+
+Object buildSubmitChangeForImplRequest(String changeNumber) {
+    request = JsonOutput.toJson([
+        'config': [
+            'aws_service': 'execute-api',
+            'verify': 'false'
+        ],
+        'commands': [
+            [
+                'method': 'POST',
+                'url': "https://${env.STD_CHG_API_HOST}/api/soai/v1/standard_change/add_ci/${changeNumber}",
+                'data': [
+                    [
+                        'ci_name': 'AWS Landing Zone',
+                        'supress_incidents': 'true'
+                    ]
+                ]
+            ],
+            [
+                'method': 'POST',
+                'url': "https://${env.STD_CHG_API_HOST}/api/soai/v1/standard_change/submit/${changeNumber}"
+            ],
+            [
+                'method': 'POST',
+                'url': "https://${env.STD_CHG_API_HOST}/api/soai/v1/standard_change/begin_implementation/${changeNumber}",
+                'data': [
+                    'assigned_to': 'e85262'
+                ]
+            ]
+        ]
+    ])
+    return request
+}
+
+Object buildEndImplRequest(String sys_id, String implementationCode, String changeSuccessful) {
+    request = JsonOutput.toJson([
+        'config': [
+            'aws_service': 'execute-api',
+            'verify': 'false'
+        ],
+        'commands': [
+            [
+                'method': 'POST',
+                'url': "https://${env.STD_CHG_API_HOST}/api/soai/v1/standard_change/end_implementation/${sys_id}",
+                'data': [
+                    'u_implementation_code': implementationCode,
+                    'u_change_successful': changeSuccessful
+                ]
+            ]
+        ]
+    ])
+    return request
+}
+
+void cancelChange(Object awsCredentials, String sys_id, String cancelMessage) {
+    request = JsonOutput.toJson([
+        'config': [
+            'aws_service': 'execute-api',
+            'verify': 'false'
+        ],
+        'commands': [
+            [
+                'method': 'PATCH',
+                'url': "https://${env.STD_CHG_API_HOST}/api/soai/v1/standard_change/change/${sys_id}",
+                'data': [
+                    'message': cancelMessage
+                ]
+            ]
+        ]
+    ])
+    response = callServiceNow(awsCredentials, request)
+    println response
+}
+
+Object callServiceNow(Object credentials, Object request) {
+    response = sh(
+        returnStdout: true,
+        script: """#!/bin/bash
+            set -e
+            docker run -i \
+                --rm \
+                -v ${env.WORKSPACE}:/work \
+                --network=host \
+                -u root \
+                --env AWS_REGION=us-east-1 \
+                --env AWS_ACCESS_KEY_ID=${credentials.AccessKeyId} \
+                --env AWS_SECRET_ACCESS_KEY=${credentials.SecretAccessKey} \
+                --env AWS_SESSION_TOKEN=${credentials.SessionToken} \
+                ${env.STD_CHG_API_IMG} '${request}'
+        """
+    )
+    println response
+    return new JsonSlurperClassic().parseText(response)
+}

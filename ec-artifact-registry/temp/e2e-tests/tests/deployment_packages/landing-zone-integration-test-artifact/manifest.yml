@@ -1,0 +1,13 @@
+Template:
+  Name: LandingZoneTest.yml
+CloudFormation:
+  RequestKWArgs:
+    StackName:  landing-zone-e2e-test
+    Capabilities:
+      - CAPABILITY_IAM
+Targets:
+  AccountIds:
+    - 775698200277
+Regions:
+  - us-east-1
+

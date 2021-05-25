@@ -1,0 +1,111 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Creates initial terraform and serverless deployment bucket
+Resources:
+  DeploymentBucket:
+    Type: AWS::S3::Bucket
+    UpdateReplacePolicy: Retain
+    DeletionPolicy: Retain
+    Properties: 
+      AccessControl: Private
+      BucketName: !Sub static-artifact-registry-sls-bucket-${AWS::AccountId}-${AWS::Region}
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+
+  DeploymentBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      Bucket: !Ref DeploymentBucket
+      PolicyDocument:
+        Statement:
+          - Sid: DenyUnencryptedObjectUploads
+            Effect: Deny
+            Principal:
+              AWS: "*"
+            Action:
+              - s3:PutObject
+            Resource: !Join [ '', [!GetAtt DeploymentBucket.Arn, '/*']]
+            Condition:
+              StringNotEquals:
+                s3:x-amz-server-side-encryption: AES256
+          - Sid: EnforcedHTTPSConnections
+            Effect: Deny
+            Principal:
+              AWS: "*"
+            Action:
+              - s3:*
+            Resource: !Join [ '', [!GetAtt DeploymentBucket.Arn, '/*']]
+            Condition:
+              Bool:
+                aws:SecureTransport: false
+
+  TerraformStateBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties: 
+      AccessControl: Private
+      BucketName: !Sub static-ec-artifact-registry-tf-state-${AWS::AccountId}-${AWS::Region}
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      VersioningConfiguration:
+        Status: Enabled
+
+  TerraformStateBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      Bucket: !Ref TerraformStateBucket
+      PolicyDocument:
+        Statement:
+          - Sid: DenyUnencryptedObjectUploads
+            Effect: Deny
+            Principal:
+              AWS: "*"
+            Action:
+              - s3:PutObject
+            Resource: !Join [ '', [!GetAtt TerraformStateBucket.Arn, '/*']]
+            Condition:
+              StringNotEquals:
+                s3:x-amz-server-side-encryption: AES256
+          - Sid: EnforcedHTTPSConnections
+            Effect: Deny
+            Principal:
+              AWS: "*"
+            Action:
+              - s3:*
+            Resource: !Join [ '', [!GetAtt TerraformStateBucket.Arn, '/*']]
+            Condition:
+              Bool:
+                aws:SecureTransport: false
+
+  TerraformLockTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: LockID
+          AttributeType: S
+      KeySchema:
+        - AttributeName: LockID
+          KeyType: HASH
+      TableName: static-ec-artifact-registry-tf-lock-table
+          
+Outputs:
+  ServerlessDeploymentBucketName:
+    Description: Deployment Bucket Name
+    Value: !Ref DeploymentBucket
+  TerraformBucketName:
+    Description: Terraform State Bucket Name
+    Value: !Ref TerraformStateBucket
+  TerraformLockTable:
+    Description: Terraform Lock Table
+    Value: !Ref TerraformLockTable

@@ -1,0 +1,33 @@
+@startuml deployment_plan
+
+actor user as user
+
+user -> "Artifact API" as api
+api -> "DynamoDB" as dyno: Fetch deployment from database
+dyno --> api
+
+alt Deployment Exists
+    api -> "Deployment Plan Generator" as gen: Validate Deployment Plan
+    alt Invalid Deployment Plan
+        gen --> api: Validation Error
+        api --> user: Error Response from API
+    end
+    gen --> api: Returns valid deployment plan
+    api -> dyno: Update Deployment and Associated Plan 
+    dyno --> api
+    api --> user: Return Updated Deployment To User
+
+else Doesn't Exist
+    api -> gen: Validate Deployment Plan
+    alt Invalid Deployment Plan
+        gen --> api: Validation Error
+        api --> user: Error Response from API
+    end
+    gen --> api: Returns Valid Deployment Plan
+    note over gen: Deployments can exist without a deployment plan
+    api -> dyno: Create Deployment with Deployment Plan
+    dyno --> api
+    api --> user: Return Created Deployment To User
+end
+
+@enduml

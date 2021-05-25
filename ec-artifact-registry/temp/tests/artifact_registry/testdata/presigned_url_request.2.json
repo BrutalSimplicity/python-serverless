@@ -1,0 +1,16 @@
+{
+    "resource": "/registry/artifact/presigned_url",
+    "path": "/registry/artifact/presigned_url",
+    "httpMethod": "POST",
+    "body": {
+        "stack_name": "Self-Dependent-Test",
+        "artifact_key": "/test/artifact.zip",
+        "owner_account_id": "1234567890",
+        "deployment_selector": "dev",
+        "dependent_artifacts": [
+            "arn:aws:ec-artifact-registry:us-east-1:1234567890:artifact/Self-Dependent-Test/dev"
+        ],
+        "aws_region": "us-east-1"
+    },
+    "isBase64Encoded": false
+}

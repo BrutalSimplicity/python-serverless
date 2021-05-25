@@ -1,0 +1,32 @@
+[[source]]
+name = "pypi"
+url = "https://pypi.org/simple"
+verify_ssl = true
+
+[[source]]
+name = "nexus"
+url = "https://nexus-tools.swacorp.com/repository/pypi-dev/simple"
+verify_ssl = false
+
+[dev-packages]
+pytest = "*"
+safety = "*"
+flake8 = "*"
+pytest-cov = "*"
+black = "*"
+click = "*"
+pygments = "*"
+pyyaml = "*"
+
+[packages]
+boto3 = "*"
+simplejson = "*"
+aws-xray-sdk = "*"
+botocore = "*"
+swawesomo = "*"
+
+[requires]
+python_version = "3.8"
+
+[pipenv]
+allow_prereleases = true

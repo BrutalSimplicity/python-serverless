@@ -1,0 +1,51 @@
+[
+    {
+        "Arn": "arn:aws:ec-artifact-registry:us-east-1:775698200277:artifact/Landing-Zone-Test-A/dev",
+        "ArtifactKey": "/e2e-test/LandingZoneTest.zip",
+        "AwsRegion": "us-east-1",
+        "DeploymentSelector": "dev",
+        "ManifestTemplate": "{'Template': {'Name': 'LandingZoneTest.yml'}, 'CloudFormation': {'RequestKWArgs': {'StackName': 'landing-zone-e2e-test', 'Capabilities': ['CAPABILITY_IAM']}}, 'Targets': {'AccountIds': [775698200277]}, 'Regions': ['us-east-1']}",
+        "OwnerAccountId": "775698200277",
+        "StackName": "Landing-Zone-Test",
+        "VersionId": "hHXPeSWxzFjTyz1MyvnwMdXTm3FWm7u9"
+    },
+    {
+        "Arn": "arn:aws:ec-artifact-registry:us-east-1:775698200277:artifact/Landing-Zone-Test-B/dev",
+        "ArtifactKey": "/e2e-test/LandingZoneTest-2.zip",
+        "AwsRegion": "us-east-1",
+        "DeploymentSelector": "dev",
+        "ManifestTemplate": "{'Template': {'Name': 'LandingZoneTest.yml'}, 'CloudFormation': {'RequestKWArgs': {'StackName': 'landing-zone-e2e-test', 'Capabilities': ['CAPABILITY_IAM']}}, 'Targets': {'AccountIds': [775698200277]}, 'Regions': ['us-east-1']}",
+        "OwnerAccountId": "775698200277",
+        "StackName": "Landing-Zone-Test-2",
+        "VersionId": "hHXPeSWxzFjTyz1MyvnwMdXTm3FWm7u9",
+        "DependentArtifacts": [
+            "arn:aws:ec-artifact-registry:us-east-1:775698200277:artifact/Landing-Zone-Test-A/dev"
+        ]
+    },
+    {
+        "Arn": "arn:aws:ec-artifact-registry:us-east-1:775698200277:artifact/Landing-Zone-Test-C/dev",
+        "ArtifactKey": "/e2e-test/LandingZoneTest-3.zip",
+        "AwsRegion": "us-east-1",
+        "DeploymentSelector": "dev",
+        "ManifestTemplate": "{'Template': {'Name': 'LandingZoneTest.yml'}, 'CloudFormation': {'RequestKWArgs': {'StackName': 'landing-zone-e2e-test', 'Capabilities': ['CAPABILITY_IAM']}}, 'Targets': {'AccountIds': [775698200277]}, 'Regions': ['us-east-1']}",
+        "OwnerAccountId": "775698200277",
+        "StackName": "Landing-Zone-Test-3",
+        "VersionId": "hHXPeSWxzFjTyz1MyvnwMdXTm3FWm7u9",
+        "DependentArtifacts": [
+            "arn:aws:ec-artifact-registry:us-east-1:775698200277:artifact/Landing-Zone-Test-D/dev"
+        ]
+    },
+    {
+        "Arn": "arn:aws:ec-artifact-registry:us-east-1:775698200277:artifact/Landing-Zone-Test-D/dev",
+        "ArtifactKey": "/e2e-test/LandingZoneTest-4.zip",
+        "AwsRegion": "us-east-1",
+        "DeploymentSelector": "dev",
+        "ManifestTemplate": "{'Template': {'Name': 'LandingZoneTest.yml'}, 'CloudFormation': {'RequestKWArgs': {'StackName': 'landing-zone-e2e-test', 'Capabilities': ['CAPABILITY_IAM']}}, 'Targets': {'AccountIds': [775698200277]}, 'Regions': ['us-east-1']}",
+        "OwnerAccountId": "775698200277",
+        "StackName": "Landing-Zone-Test-4",
+        "VersionId": "hHXPeSWxzFjTyz1MyvnwMdXTm3FWm7u9",
+        "DependentArtifacts": [
+            "arn:aws:ec-artifact-registry:us-east-1:775698200277:artifact/Landing-Zone-Test-B/dev"
+        ]
+    }    
+]

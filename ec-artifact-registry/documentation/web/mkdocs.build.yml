@@ -1,0 +1,43 @@
+---
+site_name: Distributed Deployment Engine Documentation
+repo_name: ec/account-registry-events
+repo_url: https://stash1-tools.swacorp.com/scm/ec/account-registry-events.git
+use_directory_urls: false
+image: southwest.logo.png
+nav:
+  - Home: index.md
+  - User Guide:
+    - Home: user_guide/index.md
+    - Getting Started: user_guide/getting.started.md
+    - API: user_guide/api.md
+  - Admin Guide:
+    - Home: admin_guide/index.md
+plugins:
+  - search:
+      prebuild_index: true
+theme:
+  name: material
+markdown_extensions:
+  - codehilite:
+      linenums: true
+  - admonition
+  - pymdownx.arithmatex
+  - pymdownx.betterem:
+      smart_enable: all
+  - pymdownx.caret
+  - pymdownx.critic
+  - pymdownx.details
+  - pymdownx.inlinehilite
+  - pymdownx.magiclink
+  - pymdownx.mark
+  - pymdownx.smartsymbols
+  - pymdownx.superfences
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.tabbed
+  - pymdownx.tilde
+  - toc:
+      permalink: true
+extra_css:
+  - assets/extra.css
+  - assets/tabbed.css

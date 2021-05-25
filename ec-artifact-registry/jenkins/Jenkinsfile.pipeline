@@ -1,0 +1,95 @@
+@Library('ec-shared-libraries') _
+import com.swacorp.ec.aws
+import com.swacorp.ec.ecr
+
+
+pipeline {
+
+    // agent {label "ec-infra-runway-builder"}
+    agent { dockerfile true }
+    environment {
+        AWS_ACCT_DEV        = "775698200277"
+        AWS_ACCT            = "${env.AWS_ACCT_DEV}"
+        AWS_ROLE_ENV        = sh (returnStdout: true, script: """
+            case "${BRANCH_NAME}" in
+                dev*)  echo dev;;
+                prod*)  echo prod;;
+                qa*)   echo qa;;
+                *)  echo dev;;
+            esac
+            """).trim()
+        DEPLOY_ENVIRONMENT  = sh (returnStdout: true, script: """
+            case "${GIT_BRANCH}" in
+                dev*|qa*|prod*)  echo ${GIT_BRANCH};;
+                *)                      echo dev;;
+            esac
+            """).trim()
+        GIT_CREDENTIALS     = 'ec-deploy-user'
+        GIT_REPO            = 'https://stash1-tools.swacorp.com/scm/ec/account-registry-events.git'
+        AWS_DEFAULT_REGION  = 'us-east-1'
+        GIT_BRANCH          = "${GIT_BRANCH}"
+
+    }
+
+    stages {
+
+        stage("initialization") {
+           steps {
+                cleanWs()
+                git branch: "${env.BRANCH_NAME}", changelog: false, credentialsId: "${GIT_CREDENTIALS}", poll: false, url: "${GIT_REPO}"
+                sh "terraform -version"
+                sh "runway --version"
+                sh "which runway"
+            }
+        }
+
+        stage("AWS Auth") {
+            steps {
+                script {
+                    awsAuthInfra("${AWS_ACCT}", env)
+                }
+            }
+        }
+
+        stage ('Runway: Preflight Check') {
+            steps {
+                // dir('runway') {
+                    sh 'pwd'
+                    sh 'ls -ltr ./'
+                    // sh 'runway preflight'
+                // }
+            }
+        }
+
+        // stage("Runway: Deploy") {
+        //     steps {
+        //         dir('runway'){
+        //             sh 'CI=1 runway takeoff'
+        //         }
+        //     }
+        // }
+
+    }
+
+
+}
+
+def awsAuthInfra(String AWS_ACCT, env) {
+    /* Using a temp role until we figure out why there is a permission boundary attached to swa/JenkinsAssumedRole
+       that is explicitly denying sts:AssumeRole. */
+    // env.STSRESPONSE=sh(returnStdout: true, script: "set +x && aws sts assume-role --role-arn arn:aws:iam::$AWS_ACCT:role/swa/JenkinsAssumedRole --role-session-name $AWS_ACCT-assume-role --duration-seconds 14400 | jq -c .")
+    env.STSRESPONSE=sh(returnStdout: true, script: "set +x && aws sts assume-role --role-arn arn:aws:iam::$AWS_ACCT:role/swa/SWAECJenkinsDeployRole-$AWS_ROLE_ENV --role-session-name $AWS_ACCT-assume-role | jq -c .")
+    env.AWS_ACCESS_KEY_ID = sh(returnStdout: true, script: "set +x && echo \$STSRESPONSE | jq -r .Credentials.AccessKeyId").trim()
+    env.AWS_SECRET_ACCESS_KEY = sh (returnStdout: true, script: "set +x && echo \$STSRESPONSE | jq -r .Credentials.SecretAccessKey").trim()
+    env.AWS_SESSION_TOKEN = sh (returnStdout: true, script: "set +x && echo \$STSRESPONSE | jq -r .Credentials.SessionToken").trim()
+    env.MY_ROLE_ARN= sh(returnStdout: true, script: "aws sts get-caller-identity --query 'Arn' --output text | sed 's/:sts:/:iam:/; s/assumed-//; s^\\(.*\\)/\\(.*\\)/.*^\\1/\\2^;'").trim()
+}
+
+// def configMap = [
+//                   cfnCodeRootDir: '',
+//                   testCodeRootDir: 'test',
+//                   versionIncFlag: 'minor',
+//                   group: "com.swacorp.ec.landing-zone"
+//                 ]
+
+// ecGitOpsBuild configMap

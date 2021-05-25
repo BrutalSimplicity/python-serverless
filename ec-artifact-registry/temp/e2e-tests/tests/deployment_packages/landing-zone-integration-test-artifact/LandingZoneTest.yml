@@ -1,0 +1,9 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: |
+  Empty cloudformation stack
+Conditions:
+  Never: !Equals [ a, b ]
+Resources:
+  NullResource:
+    Type: Custom::Null
+    Condition: Never

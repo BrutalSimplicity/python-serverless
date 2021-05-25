@@ -1,0 +1,65 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"name": "artifacts_service",
+			"path": "artifacts_service"
+		},
+		{
+			"name": "deployment_service",
+			"path": "deployment_service"
+		},
+		{
+			"name": "e2e-tests",
+			"path": "e2e-tests"
+		},
+		{
+			"name": "shared",
+			"path": "shared/code"
+		},
+		{
+			"path": "documentation"
+		}
+	],
+	"settings": {
+		"python.linting.pylintEnabled": false,
+		"python.linting.flake8Enabled": true,
+		"python.linting.enabled": true,
+		"python.linting.flake8Args": [
+			".flake8"
+		],
+		"python.pythonPath": ".venv/bin/python",
+		"python.testing.pytestArgs": [
+			"tests"
+		],
+		"python.testing.unittestEnabled": false,
+		"python.testing.nosetestsEnabled": false,
+		"python.testing.pytestEnabled": true,
+		"python.analysis.typeCheckingMode": "basic",
+		"python.formatting.provider": "black",
+		"[python]": {
+			"editor.formatOnSave": true
+		},
+		"launch": {
+			"configurations": [{
+				"name": "Debug Unit Test",
+				"type": "python",
+				"request": "test",
+				// disable to step through library code
+				// can be handy to debug some sticky library issues
+				// "justMyCode": true
+			}],
+			"compounds": []
+		}
+	},
+	"extensions": {
+		"recommendations": [
+			"ms-python.python",
+			"ms-python.vscode-pylance",
+			"hashicorp.terraform",
+			"EditorConfig.EditorConfig"
+		]
+	}
+}

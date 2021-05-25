@@ -1,0 +1,101 @@
+@Library('ec-shared-libraries') _
+import com.swacorp.ec.aws
+import com.swacorp.ec.ecr
+import groovy.json.JsonSlurperClassic
+pipeline {
+    agent {label 'ec-gitops-agent'} {
+        dockerfile {
+            filename 'Dockerfile.python'
+            args "-v ${env.WORKSPACE}:/opt/workspace"
+        }
+    }
+
+    environment {
+        AWS_ACCOUNT_ID          = "775698200277"
+        DEPLOY_ENVIRONMENT      = "${env.BRANCH_NAME}"
+        DEPLOY_ROLE             = "dev"
+    }
+
+    stages {
+        stage('setup') {
+            steps {
+                script {
+                    checkout scm
+                }
+            }
+        }
+
+        stage('Runway DESTROY') {
+            steps {
+                script {
+                    // get creds before we go into the container.
+                    target_credentials = assume_role(env.AWS_ACCOUNT_ID, env.DEPLOY_ROLE)
+                    // start in runway directory, also set creds and tf env vars.
+                    dir("runway") {
+                            withEnv([
+                            "AWS_ACCESS_KEY_ID=${target_credentials.AccessKeyId}",
+                            "AWS_SECRET_ACCESS_KEY=${target_credentials.SecretAccessKey}",
+                            "AWS_SESSION_TOKEN=${target_credentials.SessionToken}",
+                            "TF_CLI_ARGS_init='-no-color'",
+                            "TF_CLI_ARGS_apply='-no-color'",
+                            "DEPLOY_ENVIRONMENT=${env.DEPLOY_ENVIRONMENT}",
+                            "TERRAFORM_VERSION=0.12.24",
+                            "CI=1"
+                            ]) {
+                        // execute runway.
+                        sh '''
+                        runway destroy
+                        '''
+                        }
+                    }
+                }
+            }
+        } // stage('Runway DESTROY')
+
+        stage('Cleanup Workspace us-east-1') {
+            steps {
+                script {
+                    dir("runway") {
+                            withEnv([
+                            "AWS_DEFAULT_REGION=us-east-1",
+                            "AWS_ACCESS_KEY_ID=${target_credentials.AccessKeyId}",
+                            "AWS_SECRET_ACCESS_KEY=${target_credentials.SecretAccessKey}",
+                            "AWS_SESSION_TOKEN=${target_credentials.SessionToken}",
+                            "TF_CLI_ARGS_init='-no-color'",
+                            "TF_CLI_ARGS_apply='-no-color'",
+                            "DEPLOY_ENVIRONMENT=${env.DEPLOY_ENVIRONMENT}",
+                            "TERRAFORM_VERSION=0.12.24",
+                            "CI=1"
+                            ]) {
+                        sh """
+                        for dir in */; do
+                            cd \$dir && \
+                                if [[ -z "\$(terraform workspace list | \
+                                grep -Eo "(^|\\s)${env.DEPLOY_ENVIRONMENT}(\$|\\s)")" ]]
+                                then
+                                    echo "${env.DEPLOY_ENVIRONMENT} WORKSPACE NOT HERE."
+                                    cd ..
+                                else
+                                    terraform workspace select default && \
+                                    terraform workspace delete ${env.DEPLOY_ENVIRONMENT}
+                                    cd ..
+                                fi
+                        done
+                        """
+                        }
+                    }
+                }
+            }
+        } // stage('Cleanup Workspace')
+
+    } // stages
+
+} // pipeline
+
+def assume_role(AWS_ACCOUNT_ID, AWS_ROLE_ENV) {
+    rawStsResponse = sh(returnStdout: true, script: "set +x && aws sts assume-role --role-arn arn:aws:iam::$AWS_ACCOUNT_ID:role/swa/SWAECJenkinsDeployRole-$AWS_ROLE_ENV --role-session-name $AWS_ACCOUNT_ID-assume-role | jq -c .")
+    stsResponse = new JsonSlurperClassic().parseText(rawStsResponse)
+    echo "stsResponse: ${stsResponse}"
+    echo "stsResponse.Credentials: ${stsResponse.Credentials}"
+    return stsResponse.Credentials
+}

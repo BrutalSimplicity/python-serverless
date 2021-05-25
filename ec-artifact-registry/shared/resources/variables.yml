@@ -1,0 +1,49 @@
+ssm_namespace: /swacorp/ec/artifact_registry
+backend:
+  bucket:
+    us-east-1:
+      "775698200277": static-ec-artifact-registry-tf-state-775698200277-us-east-1
+      "997873956369": static-ec-artifact-registry-tf-state-997873956369-us-east-1
+      "727406357928": static-ec-artifact-registry-tf-state-727406357928-us-east-1
+    us-west-2:
+      "775698200277": static-ec-artifact-registry-tf-state-775698200277-us-west-2
+      "997873956369": static-ec-artifact-registry-tf-state-997873956369-us-west-2
+      "727406357928": static-ec-artifact-registry-tf-state-727406357928-us-west-2
+regions:
+  us-east-1: "true"
+  us-west-2: "false"
+
+swa_environment:
+  "775698200277": dev
+  "997873956369": qa
+  "727406357928": prod
+
+route53_hosted_zone_name:
+  "775698200277": registry.ec.dev.aws.swacorp.com
+  "997873956369": registry.ec.qa.aws.swacorp.com
+  "727406357928": registry.ec.prod.aws.swacorp.com
+
+cert_authority_arn:
+  "775698200277":
+    us-east-1: "arn:aws:acm-pca:us-east-1:411421005959:certificate-authority/64eceb3b-7886-4f51-a55a-f106951c5c2e"
+    us-west-2: "arn:aws:acm-pca:us-west-2:411421005959:certificate-authority/a9726c8e-e6f4-42d9-a6ea-df60a49e6bbd"
+  "997873956369":
+    us-east-1: "arn:aws:acm-pca:us-east-1:435503234862:certificate-authority/1defaf95-a678-4845-959b-8819c1228bd9"
+    us-west-2: "arn:aws:acm-pca:us-west-2:435503234862:certificate-authority/2a0439ce-60b6-433e-881f-9621e6f84839"
+  "727406357928":
+    us-east-1: "arn:aws:acm-pca:us-east-1:602788979237:certificate-authority/17371797-d037-4d85-9aa4-51a0f33a1f43"
+    us-west-2: "arn:aws:acm-pca:us-west-2:602788979237:certificate-authority/7527a86e-bdea-47af-9983-a6e1b1709539"
+
+cert_role:
+  "775698200277": "arn:aws:iam::411421005959:role/SWACSManageCertRole"
+  "997873956369": "arn:aws:iam::435503234862:role/SWACSManageCertRole"
+  "727406357928": "arn:aws:iam::602788979237:role/SWACSManageCertRole"
+
+loglevel:
+  dev: DEBUG
+  qa: DEBUG
+  prod: DEBUG
+
+event_sources:
+  dde_status: "swa.ec.landing-zone.status"
+  status: "swa.ec.artifact-registry.status"

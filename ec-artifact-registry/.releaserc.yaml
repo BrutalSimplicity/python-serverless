@@ -1,0 +1,16 @@
+repositoryUrl: https://stash1-tools.swacorp.com/scm/ec/ec-artifact-registry.git
+ci: true
+debug: true
+branches:
+  - main
+  - name: CPEC-*
+    prerelease: true
+plugins:
+  - "@semantic-release/commit-analyzer":
+      preset: conventionalcommits
+  - "@semantic-release/release-notes-generator"
+  - "@semantic-release/changelog":
+      changelogFile: "documentation/admin-guide/docs/CHANGELOG.md"
+  - "@semantic-release/git":
+      assets:
+        - "documentation/admin-guide/docs/CHANGELOG.md"
